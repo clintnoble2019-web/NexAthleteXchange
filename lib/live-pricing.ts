@@ -44,9 +44,6 @@ export function calculateBoundedTargetPrice(currentPrice: number, targetPrice: n
   return roundMoney(bounded);
 }
 
-// Intraday updates are always bounded from the day's opening price. This lets
-// prices react repeatedly to new game data without compounding the same stat
-// line over and over on every scheduler tick.
 export function calculateDailyBoundedTargetPrice(openPrice: number, targetPrice: number, maxMovePct = livePricingConfig.maxMovePct) {
   return calculateBoundedTargetPrice(openPrice, targetPrice, maxMovePct);
 }
@@ -73,9 +70,6 @@ export function calculateNbaLiveImpact(liveStats: Record<string, unknown>, seaso
   const progress = clamp(minutes / expectedMinutes, 0.15, 1);
   const liveScore = nbaProductionScore(liveStats);
   const expectedScore = Math.max(8, seasonStats ? nbaProductionScore(seasonStats) : 24);
-
-  // Compare the player's current-game pace with his normal full-game production,
-  // then gradually increase the weight as the game progresses.
   const projectedScore = liveScore / progress;
   const relativePerformance = projectedScore / expectedScore - 1;
   return clamp(relativePerformance * 0.10 * progress, -livePricingConfig.maxLiveImpactPct, livePricingConfig.maxLiveImpactPct);
@@ -138,6 +132,59 @@ export function calculateMlbLiveImpact(stats: Record<string, unknown>) {
 
   const impact = (hasHittingLine ? hitterScore * 0.015 : 0) + (hasPitchingLine ? pitcherScore * 0.015 : 0);
   return clamp(impact, -livePricingConfig.maxLiveImpactPct, livePricingConfig.maxLiveImpactPct);
+}
+
+export function nflProductionScore(stats: Record<string, unknown>) {
+  return (
+    firstNumeric(stats, ["passing_yards"]) * 0.04 +
+    firstNumeric(stats, ["passing_touchdowns"]) * 4 -
+    firstNumeric(stats, ["passing_interceptions"]) * 2 +
+    firstNumeric(stats, ["rushing_yards"]) * 0.1 +
+    firstNumeric(stats, ["rushing_touchdowns"]) * 6 +
+    firstNumeric(stats, ["receptions"]) +
+    firstNumeric(stats, ["receiving_yards"]) * 0.1 +
+    firstNumeric(stats, ["receiving_touchdowns"]) * 6 -
+    firstNumeric(stats, ["fumbles_lost"]) * 2 +
+    firstNumeric(stats, ["total_tackles"]) * 0.08 +
+    firstNumeric(stats, ["defensive_sacks"]) * 1.5 +
+    firstNumeric(stats, ["tackles_for_loss"]) * 0.35 +
+    firstNumeric(stats, ["passes_defended"]) * 0.4 +
+    firstNumeric(stats, ["defensive_interceptions"]) * 3 +
+    firstNumeric(stats, ["fumbles_recovered"]) * 2 +
+    firstNumeric(stats, ["fumbles_touchdowns"]) * 6 +
+    firstNumeric(stats, ["interception_touchdowns"]) * 6 +
+    firstNumeric(stats, ["kick_return_touchdowns"]) * 6 +
+    firstNumeric(stats, ["punt_return_touchdowns"]) * 6 +
+    firstNumeric(stats, ["field_goals_made"]) * 3 +
+    firstNumeric(stats, ["extra_points_made"])
+  );
+}
+
+export function calculateNflLiveImpact(liveStats: Record<string, unknown>, seasonStats?: Record<string, unknown>) {
+  const activity =
+    firstNumeric(liveStats, ["passing_attempts"]) +
+    firstNumeric(liveStats, ["rushing_attempts"]) +
+    firstNumeric(liveStats, ["receiving_targets"]) +
+    firstNumeric(liveStats, ["total_tackles"]) +
+    firstNumeric(liveStats, ["field_goal_attempts"]) +
+    firstNumeric(liveStats, ["punts"]);
+  if (activity <= 0) return 0;
+
+  const liveScore = nflProductionScore(liveStats);
+  const game = liveStats.game && typeof liveStats.game === "object" ? liveStats.game as Record<string, unknown> : undefined;
+  const statusState = String(game?.status_state ?? liveStats.status_state ?? "unknown").toLowerCase();
+
+  if (statusState === "final" && seasonStats) {
+    const gamesPlayed = Math.max(1, firstNumeric(seasonStats, ["games_played"]));
+    const expected = Math.max(4, nflProductionScore(seasonStats) / gamesPlayed);
+    const relativePerformance = liveScore / expected - 1;
+    return clamp(relativePerformance * 0.05, -livePricingConfig.maxLiveImpactPct, livePricingConfig.maxLiveImpactPct);
+  }
+
+  const mistakes =
+    firstNumeric(liveStats, ["passing_interceptions"]) +
+    firstNumeric(liveStats, ["fumbles_lost"]);
+  return clamp(liveScore * 0.0025 - mistakes * 0.004, -0.02, livePricingConfig.maxLiveImpactPct);
 }
 
 export function startOfUtcDay(now = new Date()) {
