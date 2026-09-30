@@ -4,12 +4,15 @@ import {
   getBdlMlbSeasonStats,
   getBdlNbaLiveStats,
   getBdlNbaSeasonAverages,
+  getBdlNflLiveStats,
+  getBdlNflSeasonStats,
   type BdlLivePlayerStat,
 } from "./balldontlie";
 import {
   buildPercentiles,
   mlbPerformanceRawScore,
   nbaPerformanceRawScore,
+  nflPerformanceRawScore,
   performanceFromPercentile,
   priceFromPercentile,
   type LaunchSport,
@@ -18,13 +21,14 @@ import {
   calculateDailyBoundedTargetPrice,
   calculateMlbLiveImpact,
   calculateNbaLiveImpact,
+  calculateNflLiveImpact,
   startOfUtcDay,
 } from "./live-pricing";
 import { gamePerformanceValue, lifetimePerformanceMarketCap } from "./market-cap";
 
 function providerPlayerId(providerKey: string | null) {
   if (!providerKey) return null;
-  const match = providerKey.match(/^bdl:(NBA|MLB):player:(\d+)$/);
+  const match = providerKey.match(/^bdl:(NBA|MLB|NFL):player:(\d+)$/);
   return match ? Number(match[2]) : null;
 }
 
@@ -36,6 +40,11 @@ function defaultNbaSeason(now = new Date()) {
 function defaultMlbSeason(now = new Date()) {
   const year = now.getUTCFullYear();
   return now.getUTCMonth() >= 2 ? year : year - 1;
+}
+
+function defaultNflSeason(now = new Date()) {
+  const year = now.getUTCFullYear();
+  return now.getUTCMonth() >= 7 ? year : year - 1;
 }
 
 function seasonFromEnv(name: string, fallback: number) {
@@ -86,6 +95,18 @@ async function ensureDailyOpen(
   return openByAthlete;
 }
 
+async function seasonStatsForSport(sport: LaunchSport, season: number) {
+  if (sport === "NBA") return getBdlNbaSeasonAverages(season);
+  if (sport === "MLB") return getBdlMlbSeasonStats(season);
+  return getBdlNflSeasonStats(season);
+}
+
+function rawScoreForSport(sport: LaunchSport, stats: Record<string, unknown>) {
+  if (sport === "NBA") return nbaPerformanceRawScore(stats);
+  if (sport === "MLB") return mlbPerformanceRawScore(stats);
+  return nflPerformanceRawScore(stats);
+}
+
 async function updateSeasonBaselineSport(prisma: PrismaClient, sport: LaunchSport, season: number, now: Date) {
   const prismaSport = Sport[sport];
   const source = `season-balldontlie-${sport.toLowerCase()}-${season}-${dateKey(now)}`;
@@ -104,17 +125,13 @@ async function updateSeasonBaselineSport(prisma: PrismaClient, sport: LaunchSpor
     })).map((row) => row.athleteId),
   );
 
-  const statsRows = sport === "NBA"
-    ? await getBdlNbaSeasonAverages(season)
-    : await getBdlMlbSeasonStats(season);
+  const statsRows = await seasonStatsForSport(sport, season);
   const statsByPlayer = new Map(statsRows.map((row) => [row.playerId, row.stats]));
 
   const ranked = athletes.map((athlete) => {
     const playerId = providerPlayerId(athlete.providerKey);
     const stats = playerId == null ? undefined : statsByPlayer.get(playerId);
-    const rawScore = stats
-      ? (sport === "NBA" ? nbaPerformanceRawScore(stats) : mlbPerformanceRawScore(stats))
-      : null;
+    const rawScore = stats ? rawScoreForSport(sport, stats) : null;
     return { athlete, rawScore };
   });
 
@@ -167,9 +184,11 @@ async function updateSeasonBaselineSport(prisma: PrismaClient, sport: LaunchSpor
 export async function runSeasonMarketUpdate(prisma: PrismaClient, now = new Date()) {
   const nbaSeason = seasonFromEnv("NEX_NBA_PRICING_SEASON", defaultNbaSeason(now));
   const mlbSeason = seasonFromEnv("NEX_MLB_PRICING_SEASON", defaultMlbSeason(now));
+  const nflSeason = seasonFromEnv("NEX_NFL_PRICING_SEASON", defaultNflSeason(now));
   const nba = await updateSeasonBaselineSport(prisma, "NBA", nbaSeason, now);
   const mlb = await updateSeasonBaselineSport(prisma, "MLB", mlbSeason, now);
-  return { mode: "baseline" as const, nbaSeason, mlbSeason, nba, mlb };
+  const nfl = await updateSeasonBaselineSport(prisma, "NFL", nflSeason, now);
+  return { mode: "baseline" as const, nbaSeason, mlbSeason, nflSeason, nba, mlb, nfl };
 }
 
 function eligibleLiveRows(rows: BdlLivePlayerStat[], now: Date) {
@@ -199,12 +218,16 @@ function latestRowPerPlayer(rows: BdlLivePlayerStat[]) {
   return latest;
 }
 
+async function liveStatsForSport(sport: LaunchSport, dates: string[]) {
+  if (sport === "NBA") return getBdlNbaLiveStats(dates);
+  if (sport === "MLB") return getBdlMlbLiveStats(dates);
+  return getBdlNflLiveStats(dates);
+}
+
 async function updateLiveSport(prisma: PrismaClient, sport: LaunchSport, season: number, now: Date) {
   const prismaSport = Sport[sport];
   const window = liveDateWindow(now);
-  const rawRows = sport === "NBA"
-    ? await getBdlNbaLiveStats(window.dates)
-    : await getBdlMlbLiveStats(window.dates);
+  const rawRows = await liveStatsForSport(sport, window.dates);
   const rowsByPlayer = latestRowPerPlayer(eligibleLiveRows(rawRows, now));
   if (rowsByPlayer.size === 0) return { sport, tracked: 0, moved: 0, liveGames: 0 };
 
@@ -227,9 +250,9 @@ async function updateLiveSport(prisma: PrismaClient, sport: LaunchSport, season:
     if (playerId != null) athleteByPlayerId.set(playerId, athlete);
   }
 
-  const seasonStatsByPlayer = sport === "NBA"
-    ? new Map((await getBdlNbaSeasonAverages(season)).map((row) => [row.playerId, row.stats]))
-    : new Map<number, Record<string, unknown>>();
+  const seasonStatsByPlayer = sport === "MLB"
+    ? new Map<number, Record<string, unknown>>()
+    : new Map((await seasonStatsForSport(sport, season)).map((row) => [row.playerId, row.stats]));
 
   const openByAthlete = await ensureDailyOpen(prisma, athletes, now);
   const baselineRows = await prisma.priceSnapshot.findMany({
@@ -259,9 +282,12 @@ async function updateLiveSport(prisma: PrismaClient, sport: LaunchSport, season:
     const athlete = athleteByPlayerId.get(playerId);
     if (!athlete) continue;
 
+    const seasonStats = seasonStatsByPlayer.get(playerId);
     const impact = sport === "NBA"
-      ? calculateNbaLiveImpact(liveRow.stats, seasonStatsByPlayer.get(playerId))
-      : calculateMlbLiveImpact(liveRow.stats);
+      ? calculateNbaLiveImpact(liveRow.stats, seasonStats)
+      : sport === "MLB"
+        ? calculateMlbLiveImpact(liveRow.stats)
+        : calculateNflLiveImpact(liveRow.stats, seasonStats);
 
     const openPrice = openByAthlete.get(athlete.id) ?? Number(athlete.currentPrice);
     const baselinePrice = baselineByAthlete.get(athlete.id) ?? openPrice;
@@ -352,7 +378,9 @@ async function updateLiveSport(prisma: PrismaClient, sport: LaunchSport, season:
 export async function runLiveMarketUpdate(prisma: PrismaClient, now = new Date()) {
   const nbaSeason = seasonFromEnv("NEX_NBA_PRICING_SEASON", defaultNbaSeason(now));
   const mlbSeason = seasonFromEnv("NEX_MLB_PRICING_SEASON", defaultMlbSeason(now));
+  const nflSeason = seasonFromEnv("NEX_NFL_PRICING_SEASON", defaultNflSeason(now));
   const nba = await updateLiveSport(prisma, "NBA", nbaSeason, now);
   const mlb = await updateLiveSport(prisma, "MLB", mlbSeason, now);
-  return { mode: "live" as const, nba, mlb };
+  const nfl = await updateLiveSport(prisma, "NFL", nflSeason, now);
+  return { mode: "live" as const, nba, mlb, nfl };
 }
