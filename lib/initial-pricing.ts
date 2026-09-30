@@ -1,11 +1,11 @@
-export type LaunchSport = "NBA" | "MLB";
+export type LaunchSport = "NBA" | "MLB" | "NFL";
 
 export const initialPricingConfig = {
   minPrice: 3,
   maxPrice: 56.5,
   curve: 2.15,
-  noStatsPrice: { NBA: 8, MLB: 6 } as Record<LaunchSport, number>,
-  noStatsPerformance: { NBA: 48, MLB: 45 } as Record<LaunchSport, number>
+  noStatsPrice: { NBA: 8, MLB: 6, NFL: 7 } as Record<LaunchSport, number>,
+  noStatsPerformance: { NBA: 48, MLB: 45, NFL: 46 } as Record<LaunchSport, number>
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -83,6 +83,50 @@ export function mlbPerformanceRawScore(stats: Record<string, unknown>) {
     valueOrZero(saves) * 0.035;
 
   return totalWar * 12 + battingValue + pitchingValue;
+}
+
+export function nflPerformanceRawScore(stats: Record<string, unknown>) {
+  const gamesPlayed = numeric(stats.games_played);
+  const passingYards = numeric(stats.passing_yards);
+  const passingTouchdowns = numeric(stats.passing_touchdowns);
+  const passingInterceptions = numeric(stats.passing_interceptions);
+  const rushingYards = numeric(stats.rushing_yards);
+  const rushingTouchdowns = numeric(stats.rushing_touchdowns);
+  const receptions = numeric(stats.receptions);
+  const receivingYards = numeric(stats.receiving_yards);
+  const receivingTouchdowns = numeric(stats.receiving_touchdowns);
+  const rushingFumblesLost = numeric(stats.rushing_fumbles_lost);
+  const receivingFumblesLost = numeric(stats.receiving_fumbles_lost);
+  const totalPoints = numeric(stats.total_points);
+
+  if ([
+    gamesPlayed,
+    passingYards,
+    passingTouchdowns,
+    rushingYards,
+    rushingTouchdowns,
+    receptions,
+    receivingYards,
+    receivingTouchdowns,
+    totalPoints,
+  ].every((value) => value == null)) return null;
+
+  const fantasyLikeTotal =
+    valueOrZero(passingYards) * 0.04 +
+    valueOrZero(passingTouchdowns) * 4 -
+    valueOrZero(passingInterceptions) * 2 +
+    valueOrZero(rushingYards) * 0.1 +
+    valueOrZero(rushingTouchdowns) * 6 +
+    valueOrZero(receptions) +
+    valueOrZero(receivingYards) * 0.1 +
+    valueOrZero(receivingTouchdowns) * 6 -
+    (valueOrZero(rushingFumblesLost) + valueOrZero(receivingFumblesLost)) * 2 +
+    valueOrZero(totalPoints) * 0.35;
+
+  const gp = Math.max(1, valueOrZero(gamesPlayed));
+  const perGame = fantasyLikeTotal / gp;
+  const availability = 0.65 + 0.35 * clamp(gp / 8, 0, 1);
+  return perGame * availability;
 }
 
 export function buildPercentiles<T extends { rawScore: number | null }>(rows: T[]) {
