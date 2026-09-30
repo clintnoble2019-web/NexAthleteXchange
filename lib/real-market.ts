@@ -7,8 +7,16 @@ export const realMarket = {
   sandboxNetwork: "Solana Devnet",
   cryptoAsset: "USDC",
   tradeFee: 2,
+  liquidityProviderMakerFee: 0,
   deposits: ["Bank", "Debit card", "USDC on Solana"],
   withdrawals: ["Bank", "USDC on Solana"],
+  launchUniverse: {
+    total: 60,
+    perSport: 20,
+    sports: ["NBA", "NFL", "MLB"] as const,
+    nflPositions: ["QB", "WR", "RB"] as const,
+  },
+  careerEndingRetirementDays: 7,
 };
 
 export function assertRealMarketDisabled() {

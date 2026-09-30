@@ -13,6 +13,8 @@
     "test:milestone4": "tsx scripts/milestone-4-live-market-test.ts",
     "test:milestone5": "tsx scripts/milestone-5-engagement-test.ts",
     "test:realmarket": "tsx scripts/real-market-foundation-2-test.ts",
+    "test:realmarket3": "tsx scripts/real-market-foundation-3-test.ts",
+    "lp:provision:sandbox": "tsx scripts/provision-sandbox-lp.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",

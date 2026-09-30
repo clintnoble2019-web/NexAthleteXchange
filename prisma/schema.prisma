@@ -53,26 +53,53 @@ enum RealLedgerType {
   TRADE_BUY
   TRADE_SELL
   TRADE_FEE
+  RETIREMENT_SETTLEMENT
+}
+
+enum RealInstrumentStatus {
+  ACTIVE
+  HALTED
+  RETIRING
+  SETTLED
+  RETIRED
+}
+
+enum LiquidityProviderStatus {
+  SANDBOX_ACTIVE
+  SUSPENDED
+}
+
+enum LiquidityQuoteSide {
+  BID
+  ASK
+}
+
+enum LiquidityQuoteStatus {
+  ACTIVE
+  CANCELLED
+  FILLED
+  EXPIRED
 }
 
 model User {
-  id                    String                    @id @default(cuid())
-  email                 String                    @unique
-  username              String                    @unique
-  passwordHash          String
-  createdAt             DateTime                  @default(now())
-  wallet                Wallet?
-  positions             Position[]
-  trades                Trade[]
-  ledger                LedgerEntry[]
-  sessions              Session[]
-  watchlist             WatchlistEntry[]
-  weeklyBaselines       WeeklyPortfolioBaseline[]
-  realWallets           RealWallet[]
-  realPositions         RealPosition[]
-  realTrades            RealTrade[]
-  realLedger            RealLedgerEntry[]
+  id                      String                    @id @default(cuid())
+  email                   String                    @unique
+  username                String                    @unique
+  passwordHash            String
+  createdAt               DateTime                  @default(now())
+  wallet                  Wallet?
+  positions               Position[]
+  trades                  Trade[]
+  ledger                  LedgerEntry[]
+  sessions                Session[]
+  watchlist               WatchlistEntry[]
+  weeklyBaselines         WeeklyPortfolioBaseline[]
+  realWallets             RealWallet[]
+  realPositions           RealPosition[]
+  realTrades              RealTrade[]
+  realLedger              RealLedgerEntry[]
   realFundingTransactions RealFundingTransaction[]
+  liquidityFills          LiquidityFill[]
 }
 
 model Session {
@@ -112,30 +139,31 @@ model Team {
 }
 
 model Athlete {
-  id                String                  @id @default(cuid())
-  providerKey       String?                 @unique
-  dataProvider      String                  @default("seed")
-  name              String
-  slug              String                  @unique
-  sport             Sport
-  league            String
-  team              String
-  position          String
-  currentPrice      Decimal                 @db.Decimal(18, 2)
-  previousPrice     Decimal                 @db.Decimal(18, 2)
-  performance       Int                     @default(50)
-  marketCap         Decimal                 @default(0) @db.Decimal(18, 2)
-  active            Boolean                 @default(true)
-  marketEnabled     Boolean                 @default(true)
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  positions         Position[]
-  trades            Trade[]
-  priceHistory      PriceSnapshot[]
-  performanceValues PerformanceValueEvent[]
-  watchlistedBy     WatchlistEntry[]
-  realPositions     RealPosition[]
-  realTrades        RealTrade[]
+  id                    String                  @id @default(cuid())
+  providerKey           String?                 @unique
+  dataProvider          String                  @default("seed")
+  name                  String
+  slug                  String                  @unique
+  sport                 Sport
+  league                String
+  team                  String
+  position              String
+  currentPrice          Decimal                 @db.Decimal(18, 2)
+  previousPrice         Decimal                 @db.Decimal(18, 2)
+  performance           Int                     @default(50)
+  marketCap             Decimal                 @default(0) @db.Decimal(18, 2)
+  active                Boolean                 @default(true)
+  marketEnabled         Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  positions             Position[]
+  trades                Trade[]
+  priceHistory          PriceSnapshot[]
+  performanceValues     PerformanceValueEvent[]
+  watchlistedBy         WatchlistEntry[]
+  realPositions         RealPosition[]
+  realTrades            RealTrade[]
+  realMarketInstruments RealMarketInstrument[]
   @@index([sport, active, marketEnabled])
   @@index([sport, marketCap])
 }
@@ -310,4 +338,139 @@ model RealFundingTransaction {
   @@index([userId, environment, createdAt])
   @@index([status, environment])
   @@index([providerRef])
+}
+
+model RealMarketInstrument {
+  id                      String                @id @default(cuid())
+  athleteId               String
+  environment             RealMarketEnvironment
+  status                  RealInstrumentStatus @default(ACTIVE)
+  referencePrice          Decimal               @db.Decimal(18, 4)
+  frozenSettlementPrice   Decimal?              @db.Decimal(18, 4)
+  retirementDeadline      DateTime?
+  retirementReason        String?
+  launchRank              Int?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  athlete                 Athlete               @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  quotes                  LiquidityQuote[]
+  providerInventory       LiquidityProviderInventory[]
+  fills                   LiquidityFill[]
+  settlementEvents        RealSettlementEvent[]
+  @@unique([athleteId, environment])
+  @@index([environment, status])
+  @@index([environment, retirementDeadline])
+}
+
+model LiquidityProvider {
+  id                    String                   @id @default(cuid())
+  code                  String                   @unique
+  name                  String
+  environment           RealMarketEnvironment
+  status                LiquidityProviderStatus  @default(SANDBOX_ACTIVE)
+  makerFee              Decimal                  @default(0) @db.Decimal(8, 4)
+  maxSpreadBps          Int                      @default(500)
+  minQuoteDepth         Decimal                  @default(100) @db.Decimal(18, 2)
+  maxGrossExposure      Decimal                  @default(100000) @db.Decimal(18, 2)
+  maxPerAthleteExposure Decimal                  @default(10000) @db.Decimal(18, 2)
+  quoteTtlSeconds       Int                      @default(30)
+  lastHeartbeatAt       DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  apiKeys               LiquidityProviderApiKey[]
+  wallet                LiquidityProviderWallet?
+  inventory             LiquidityProviderInventory[]
+  quotes                LiquidityQuote[]
+  fills                 LiquidityFill[]
+  @@index([environment, status])
+}
+
+model LiquidityProviderApiKey {
+  id          String            @id @default(cuid())
+  providerId  String
+  keyPrefix   String
+  keyHash     String            @unique
+  ipAllowlist String[]
+  revokedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  provider    LiquidityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  @@index([providerId, revokedAt])
+}
+
+model LiquidityProviderWallet {
+  id         String            @id @default(cuid())
+  providerId String            @unique
+  balance    Decimal           @default(0) @db.Decimal(18, 2)
+  updatedAt  DateTime          @updatedAt
+  provider   LiquidityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model LiquidityProviderInventory {
+  id           String               @id @default(cuid())
+  providerId   String
+  instrumentId String
+  quantity     Decimal              @default(0) @db.Decimal(18, 4)
+  updatedAt    DateTime             @updatedAt
+  provider     LiquidityProvider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  instrument   RealMarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  @@unique([providerId, instrumentId])
+  @@index([instrumentId])
+}
+
+model LiquidityQuote {
+  id           String               @id @default(cuid())
+  providerId   String
+  instrumentId String
+  side         LiquidityQuoteSide
+  price        Decimal              @db.Decimal(18, 4)
+  quantity     Decimal              @db.Decimal(18, 4)
+  remaining    Decimal              @db.Decimal(18, 4)
+  status       LiquidityQuoteStatus @default(ACTIVE)
+  expiresAt    DateTime
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  provider     LiquidityProvider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  instrument   RealMarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  fills        LiquidityFill[]
+  @@unique([providerId, instrumentId, side])
+  @@index([instrumentId, side, status, expiresAt])
+  @@index([providerId, status])
+}
+
+model LiquidityFill {
+  id               String               @id @default(cuid())
+  quoteId          String
+  providerId       String
+  instrumentId     String
+  customerUserId   String?
+  side             LiquidityQuoteSide
+  quantity         Decimal              @db.Decimal(18, 4)
+  price            Decimal              @db.Decimal(18, 4)
+  gross            Decimal              @db.Decimal(18, 2)
+  providerCashFlow Decimal              @db.Decimal(18, 2)
+  createdAt        DateTime             @default(now())
+  quote            LiquidityQuote       @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  provider         LiquidityProvider    @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  instrument       RealMarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  customer         User?                @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
+  @@index([providerId, createdAt])
+  @@index([instrumentId, createdAt])
+  @@index([customerUserId, createdAt])
+}
+
+model RealSettlementReserve {
+  id          String                @id @default(cuid())
+  environment RealMarketEnvironment @unique
+  balance     Decimal               @default(0) @db.Decimal(18, 2)
+  updatedAt   DateTime              @updatedAt
+}
+
+model RealSettlementEvent {
+  id           String               @id @default(cuid())
+  instrumentId String
+  amount       Decimal              @db.Decimal(18, 2)
+  holders      Int
+  createdAt    DateTime             @default(now())
+  instrument   RealMarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  @@index([instrumentId, createdAt])
 }
