@@ -94,6 +94,9 @@ jobs:
       - name: Run Real Market Foundation 2 acceptance test
         run: npm run test:realmarket
 
+      - name: Run Real Market Foundation 3 institutional liquidity test
+        run: npm run test:realmarket3
+
       - name: Show app log on failure
         if: failure()
         run: cat /tmp/nexathletexchange.log || true
