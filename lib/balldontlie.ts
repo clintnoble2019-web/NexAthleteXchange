@@ -17,6 +17,16 @@ export type BdlPlayer = {
   team: BdlTeam;
 };
 
+export type BdlNbaSeasonAverage = {
+  playerId: number;
+  stats: Record<string, unknown>;
+};
+
+export type BdlMlbSeasonStat = {
+  playerId: number;
+  stats: Record<string, unknown>;
+};
+
 type Page<T> = { data: T[]; meta?: { next_cursor?: number | string | null } };
 
 const BASE_URL = "https://api.balldontlie.io";
@@ -27,11 +37,23 @@ function apiKey() {
   return key;
 }
 
-async function request<T>(path: string) {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function request<T>(path: string, attempt = 0): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     headers: { Authorization: apiKey() },
     cache: "no-store"
   });
+
+  if (response.status === 429 && attempt < 5) {
+    const retryAfter = Number(response.headers.get("retry-after") || 0);
+    const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(16000, 1000 * 2 ** attempt);
+    await sleep(waitMs);
+    return request<T>(path, attempt + 1);
+  }
+
   if (!response.ok) throw new Error(`BALLDONTLIE ${response.status} for ${path}`);
   return response.json() as Promise<T>;
 }
@@ -75,20 +97,69 @@ function normalizePlayer(sport: BdlSport, raw: any): BdlPlayer {
   };
 }
 
+async function collectPages<T>(pathForCursor: (cursor?: string | number | null) => string): Promise<T[]> {
+  const rows: T[] = [];
+  let cursor: number | string | null | undefined;
+  do {
+    const page = await request<Page<T>>(pathForCursor(cursor));
+    rows.push(...page.data);
+    cursor = page.meta?.next_cursor;
+  } while (cursor != null);
+  return rows;
+}
+
 export async function getBdlTeams(sport: BdlSport): Promise<BdlTeam[]> {
   const payload = await request<{ data: any[] }>(teamPath(sport));
   return payload.data.map((team) => normalizeTeam(sport, team));
 }
 
 export async function getBdlActivePlayers(sport: BdlSport): Promise<BdlPlayer[]> {
-  const players: BdlPlayer[] = [];
-  let cursor: number | string | null | undefined;
-  do {
+  const rawPlayers = await collectPages<any>((cursor) => {
     const query = new URLSearchParams({ per_page: "100" });
     if (cursor != null) query.set("cursor", String(cursor));
-    const page = await request<Page<any>>(`${playersPath(sport)}?${query}`);
-    players.push(...page.data.map((player) => normalizePlayer(sport, player)));
-    cursor = page.meta?.next_cursor;
-  } while (cursor != null);
-  return players;
+    return `${playersPath(sport)}?${query}`;
+  });
+  return rawPlayers.map((player) => normalizePlayer(sport, player));
+}
+
+export async function getBdlNbaSeasonAverages(season: number): Promise<BdlNbaSeasonAverage[]> {
+  const buildPath = (base: string, cursor?: string | number | null) => {
+    const query = new URLSearchParams({
+      season: String(season),
+      season_type: "regular",
+      type: "base",
+      per_page: "100"
+    });
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `${base}?${query}`;
+  };
+
+  const collect = async (base: string) => collectPages<any>((cursor) => buildPath(base, cursor));
+  let rows: any[];
+  try {
+    rows = await collect("/nba/v1/season_averages/general");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("404")) throw error;
+    rows = await collect("/v1/season_averages/general");
+  }
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    if (!Number.isFinite(playerId)) return [];
+    return [{ playerId, stats: (row.stats ?? row) as Record<string, unknown> }];
+  });
+}
+
+export async function getBdlMlbSeasonStats(season: number): Promise<BdlMlbSeasonStat[]> {
+  const rows = await collectPages<any>((cursor) => {
+    const query = new URLSearchParams({ season: String(season), season_type: "regular", per_page: "100" });
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `/mlb/v1/season_stats?${query}`;
+  });
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    if (!Number.isFinite(playerId)) return [];
+    return [{ playerId, stats: row as Record<string, unknown> }];
+  });
 }
