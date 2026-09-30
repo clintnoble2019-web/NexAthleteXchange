@@ -14,17 +14,25 @@ const athletes = [
 
 async function main() {
   for (const [name, slug, team, position, currentPrice, previousPrice, performance] of athletes) {
-    await prisma.athlete.upsert({
+    const athlete = await prisma.athlete.upsert({
       where: { slug },
       update: { currentPrice, previousPrice, performance, team, position, active: true },
       create: { name, slug, sport: Sport.MLB, league: "MLB", team, position, currentPrice, previousPrice, performance }
     });
-    const athlete = await prisma.athlete.findUnique({ where: { slug } });
-    if (athlete && (await prisma.priceSnapshot.count({ where: { athleteId: athlete.id } })) === 0) {
-      for (const [i, multiplier] of [0.91,0.93,0.95,0.94,0.97,0.99,1.00].entries()) {
-        await prisma.priceSnapshot.create({ data: { athleteId: athlete.id, price: Number(currentPrice) * multiplier, createdAt: new Date(Date.now() - (6-i)*86400000) } });
+
+    if ((await prisma.priceSnapshot.count({ where: { athleteId: athlete.id } })) === 0) {
+      for (const [index, multiplier] of [0.91, 0.93, 0.95, 0.94, 0.97, 0.99, 1.00].entries()) {
+        await prisma.priceSnapshot.create({
+          data: {
+            athleteId: athlete.id,
+            price: Number((Number(currentPrice) * multiplier).toFixed(4)),
+            source: "seed-history",
+            createdAt: new Date(Date.now() - (6 - index) * 86400000)
+          }
+        });
       }
     }
   }
 }
+
 main().finally(() => prisma.$disconnect());

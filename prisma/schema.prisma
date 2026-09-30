@@ -26,11 +26,11 @@ enum LedgerType {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  username     String      @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
+  username     String        @unique
   passwordHash String
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime      @default(now())
   wallet       Wallet?
   positions    Position[]
   trades       Trade[]
@@ -57,19 +57,19 @@ model Wallet {
 }
 
 model Athlete {
-  id             String    @id @default(cuid())
+  id             String          @id @default(cuid())
   name           String
-  slug           String    @unique
+  slug           String          @unique
   sport          Sport
   league         String
   team           String
   position       String
-  currentPrice   Decimal   @db.Decimal(18, 2)
-  previousPrice  Decimal   @db.Decimal(18, 2)
-  performance    Int       @default(50)
-  active         Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  currentPrice   Decimal         @db.Decimal(18, 2)
+  previousPrice  Decimal         @db.Decimal(18, 2)
+  performance    Int             @default(50)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   positions      Position[]
   trades         Trade[]
   priceHistory   PriceSnapshot[]
