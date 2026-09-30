@@ -4,6 +4,7 @@ import { TradeSide } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatNexPoints, formatSignedNexPoints } from "@/lib/nexpoints";
+import ShareTradeForm from "@/app/components/ShareTradeForm";
 
 type Param = string | string[] | undefined;
 function first(value: Param) { return Array.isArray(value) ? value[0] : value; }
@@ -57,7 +58,7 @@ export default async function Portfolio({ searchParams }: { searchParams: Promis
     <section className="card">
       <div className="sectionHeading"><div><span className="eyebrow">HOLDINGS</span><h2>Open positions</h2></div><Link className="button secondary" href="/market">Browse market</Link></div>
       <table className="market">
-        <thead><tr><th>Player</th><th>Units</th><th>Avg cost</th><th>Current</th><th>Value</th><th>P/L</th><th>Trade</th></tr></thead>
+        <thead><tr><th>Player</th><th>Shares</th><th>Avg cost</th><th>Current</th><th>Value</th><th>P/L</th><th>Trade</th></tr></thead>
         <tbody>{positions.map((p) => {
           const quantity = Number(p.quantity);
           const current = Number(p.athlete.currentPrice);
@@ -72,9 +73,9 @@ export default async function Portfolio({ searchParams }: { searchParams: Promis
             <td>{formatNexPoints(current)}</td>
             <td>{formatNexPoints(value)}</td>
             <td className={rowPnl >= 0 ? "positive" : "negative"}>{formatSignedNexPoints(rowPnl)}<div className="smallText">{rowPct >= 0 ? "+" : ""}{rowPct.toFixed(2)}%</div></td>
-            <td><form className="tradeform" action="/api/trade" method="post"><input type="hidden" name="athleteId" value={p.athleteId}/><input type="hidden" name="side" value="SELL"/><input type="hidden" name="returnTo" value="/portfolio"/><input name="quantity" aria-label={`Sell ${p.athlete.name} units`} type="number" min="0.01" step="0.01" max={quantity} defaultValue={quantity}/><button>Sell</button></form></td>
+            <td><ShareTradeForm athleteId={p.athleteId} athleteName={p.athlete.name} side="SELL" price={current} returnTo="/portfolio" maxShares={quantity} compact/></td>
           </tr>;
-        })}{positions.length === 0 && <tr><td colSpan={7} className="muted">No holdings yet. Buy your first athlete from the market.</td></tr>}</tbody>
+        })}{positions.length === 0 && <tr><td colSpan={7} className="muted">No holdings yet. Buy your first athlete shares from the market.</td></tr>}</tbody>
       </table>
     </section>
 
@@ -82,7 +83,7 @@ export default async function Portfolio({ searchParams }: { searchParams: Promis
     <section className="card">
       <div className="sectionHeading"><div><span className="eyebrow">ACTIVITY</span><h2>Recent trades</h2></div><span className="muted">Last 25 transactions</span></div>
       <table className="market">
-        <thead><tr><th>Time</th><th>Player</th><th>Side</th><th>Units</th><th>Price</th><th>Total</th><th>Realized P/L</th></tr></thead>
+        <thead><tr><th>Time</th><th>Player</th><th>Side</th><th>Shares</th><th>Price / share</th><th>Total</th><th>Realized P/L</th></tr></thead>
         <tbody>{recentTrades.map((tradeRow) => <tr key={tradeRow.id}>
           <td>{tradeRow.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
           <td><Link href={`/athletes/${tradeRow.athlete.slug}`}><strong>{tradeRow.athlete.name}</strong></Link><div className="muted">{tradeRow.athlete.team}</div></td>
