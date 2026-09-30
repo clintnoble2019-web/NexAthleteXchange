@@ -81,28 +81,31 @@ async function priceSport(sport: LaunchSport, season: number) {
     };
   });
 
+  // Use Prisma's batch transaction API instead of an interactive transaction.
+  // Hosted Postgres adds enough network latency that the previous callback-style
+  // transaction could exceed Prisma's 5-second interactive transaction timeout
+  // while pricing a large roster.
   for (let i = 0; i < assignments.length; i += 40) {
     const chunk = assignments.slice(i, i + 40);
-    await prisma.$transaction(async (tx) => {
-      for (const assignment of chunk) {
-        await tx.athlete.update({
-          where: { id: assignment.athlete.id },
-          data: {
-            currentPrice: assignment.price,
-            previousPrice: assignment.price,
-            performance: assignment.performance,
-            marketEnabled: true
-          }
-        });
-        await tx.priceSnapshot.create({
-          data: {
-            athleteId: assignment.athlete.id,
-            price: assignment.price,
-            source: `initial-balldontlie-${sport.toLowerCase()}-${season}`
-          }
-        });
-      }
-    });
+    const operations = chunk.flatMap((assignment) => [
+      prisma.athlete.update({
+        where: { id: assignment.athlete.id },
+        data: {
+          currentPrice: assignment.price,
+          previousPrice: assignment.price,
+          performance: assignment.performance,
+          marketEnabled: true
+        }
+      }),
+      prisma.priceSnapshot.create({
+        data: {
+          athleteId: assignment.athlete.id,
+          price: assignment.price,
+          source: `initial-balldontlie-${sport.toLowerCase()}-${season}`
+        }
+      })
+    ]);
+    await prisma.$transaction(operations);
   }
 
   const statPriced = assignments.filter((assignment) => assignment.hasStats).length;
