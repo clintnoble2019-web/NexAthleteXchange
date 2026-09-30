@@ -2,37 +2,33 @@ name: Market Feed Diagnostics
 on:
   push:
     branches: [fix-free-market-feed]
-    paths: [.github/workflows/market-feed-diagnostics.yml]
-  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   inspect-feed:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Inspect MLB game and stats feed without changing prices
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run typecheck
+      - name: Test postseason eligibility and provider stats
+        run: node --import tsx --test scripts/market-feed-test.ts
+      - name: Inspect corrected MLB feed without changing prices
         env:
           BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
         run: |
-          node --input-type=module <<'JS'
-          const key = process.env.BALLDONTLIE_API_KEY;
-          if (!key) throw new Error("Stats credential is missing");
-          async function get(path) {
-            const r = await fetch("https://api.balldontlie.io" + path, {headers: {Authorization: key}});
-            if (!r.ok) throw new Error("Stats API HTTP " + r.status);
-            return r.json();
-          }
+          node --import tsx --input-type=module <<'JS'
+          import { getBdlMlbLiveStats } from "./lib/balldontlie.ts";
+          import { calculateMlbLiveImpact } from "./lib/live-pricing.ts";
           const now = new Date();
           const dates = [new Date(now.getTime()-86400000).toISOString().slice(0,10), now.toISOString().slice(0,10)];
-          const q = new URLSearchParams({per_page:"100"});
-          dates.forEach(d=>q.append("dates[]",d));
-          const payload = await get("/mlb/v1/games?" + q);
-          console.log("Dates:", JSON.stringify(dates), "Pagination:", JSON.stringify(payload.meta));
-          console.log("Games:", JSON.stringify(payload.data.map(g=>({id:g.id,date:g.date,status:g.status,status_state:g.status_state,season:g.season,postseason:g.postseason,home:g.home_team?.abbreviation,away:g.visitor_team?.abbreviation}))));
-          const relevant = payload.data.filter(g=>[g.home_team?.abbreviation,g.visitor_team?.abbreviation].some(t=>t==="PHI"||t==="ATL"));
-          for (const g of relevant) {
-            const stats = await get("/mlb/v1/stats?per_page=100&game_ids[]="+g.id);
-            console.log("Stats:", JSON.stringify({game:g.id,count:stats.data.length,meta:stats.meta,rows:stats.data.slice(0,3)}));
-          }
+          const rows = await getBdlMlbLiveStats(dates);
+          console.log("Corrected feed:", JSON.stringify({count:rows.length,games:[...new Set(rows.map(r=>r.gameId))]}));
+          console.log("Harper:", JSON.stringify(rows.filter(r=>r.playerId===515).map(r=>({game:r.gameId,state:r.statusState,impact:calculateMlbLiveImpact(r.stats)}))));
+          if (!rows.some(r=>r.gameId===15467364)) throw new Error("Reported Phillies-Braves game is still missing");
           JS

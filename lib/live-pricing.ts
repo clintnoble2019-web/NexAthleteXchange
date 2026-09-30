@@ -95,7 +95,7 @@ export function calculateMlbLiveImpact(stats: Record<string, unknown>) {
   const rbi = firstNumeric(stats, ["rbi", "batting_rbi"]);
   const runs = firstNumeric(stats, ["runs", "r", "batting_r"]);
   const walks = firstNumeric(stats, ["walks", "bb", "batting_bb"]);
-  const strikeouts = firstNumeric(stats, ["strikeouts", "so", "batting_so"]);
+  const strikeouts = firstNumeric(stats, ["strikeouts", "k", "so", "batting_so"]);
   const stolenBases = firstNumeric(stats, ["stolen_bases", "sb", "batting_sb"]);
   const outsAtBat = Math.max(0, atBats - hits);
 
@@ -112,10 +112,10 @@ export function calculateMlbLiveImpact(stats: Record<string, unknown>) {
     strikeouts * 0.12;
 
   const innings = parseBaseballInnings(stats.ip ?? stats.pitching_ip);
-  const pitchingStrikeouts = firstNumeric(stats, ["p_strikeouts", "pitching_so", "pitching_k", "strikeouts_pitched"]);
-  const earnedRuns = firstNumeric(stats, ["earned_runs", "p_earned_runs", "pitching_er"]);
-  const pitchingWalks = firstNumeric(stats, ["p_walks", "pitching_bb", "walks_allowed"]);
-  const homeRunsAllowed = firstNumeric(stats, ["home_runs_allowed", "p_home_runs", "pitching_hr"]);
+  const pitchingStrikeouts = firstNumeric(stats, ["p_strikeouts", "p_k", "pitching_so", "pitching_k", "strikeouts_pitched"]);
+  const earnedRuns = firstNumeric(stats, ["earned_runs", "er", "p_earned_runs", "pitching_er"]);
+  const pitchingWalks = firstNumeric(stats, ["p_walks", "p_bb", "pitching_bb", "walks_allowed"]);
+  const homeRunsAllowed = firstNumeric(stats, ["home_runs_allowed", "p_hr", "p_home_runs", "pitching_hr"]);
   const hitsAllowed = firstNumeric(stats, ["p_hits", "hits_allowed", "pitching_h"]);
 
   const pitcherScore =
