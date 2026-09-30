@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { formatNexPoints, NEXPOINTS_SYMBOL } from "@/lib/nexpoints";
 import ShareTradeForm from "@/app/components/ShareTradeForm";
+import AutoRefresh from "@/app/components/AutoRefresh";
 
 type Param = string | string[] | undefined;
 type MarketSearchParams = {
@@ -131,7 +132,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
         <h1>{sportName} Athlete Market</h1>
         <p className="muted">Trade athlete shares with NexPoints. Fractional shares start at 0.01.</p>
       </div>
-      {user ? <div><span className="muted">NexPoints balance</span><h2>{formatNexPoints(Number(user.wallet?.balance || 0))}</h2></div> : <Link className="button" href="/signup">Start with {NEXPOINTS_SYMBOL}5,000</Link>}
+      <div className="heroActions"><AutoRefresh/>{user ? <div><span className="muted">NexPoints balance</span><h2>{formatNexPoints(Number(user.wallet?.balance || 0))}</h2></div> : <Link className="button" href="/signup">Start with {NEXPOINTS_SYMBOL}5,000</Link>}</div>
     </div>
 
     {trade && <div className="notice successNotice">{trade === "SELL" ? "Sale completed." : "Purchase completed."} Your NexPoints balance and portfolio have been updated.</div>}
