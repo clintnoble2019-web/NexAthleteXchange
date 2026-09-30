@@ -20,6 +20,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
   if (!user) redirect("/login");
   if (!(await sandboxAccessVerified(user.id))) redirect("/real-market/verify");
   const params = await searchParams;
+  const control = await prisma.betaControl.findUnique({ where: { id: "global" } });
   const account = await ensureScoutWallet(user.id);
   const instruments = await prisma.realMarketInstrument.findMany({ where: { environment: "SANDBOX", status: { not: "RETIRED" } }, include: { athlete: true }, orderBy: [{ athlete: { sport: "asc" } }, { athlete: { name: "asc" } }], take: 60 });
   const selected = instruments.find(item => item.athleteId === params.athlete) || instruments[0];
@@ -34,7 +35,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
     athleteId ? prisma.scoutOrder.groupBy({ by: ["price"], where: { ...visibleScoutOrders(athleteId), side: "SELL" }, _sum: { remaining: true }, orderBy: { price: "asc" }, take: 10 }) : [],
   ]);
   const referenceValue = positions.reduce((sum, p) => sum + Number(p.quantity) * Number(p.athlete.currentPrice), 0);
-  const open = selected?.status === "ACTIVE" && selected.athlete.active && selected.athlete.marketEnabled;
+  const open = selected?.status === "ACTIVE" && selected.athlete.active && selected.athlete.marketEnabled && !control?.sandboxPaused;
   return <main className="realSandboxPage shell">
     <header className="realSandboxHeader"><div><div className="realMarketBadge sandboxBadge">CUSTOMER TEST MARKET • FAKE MONEY</div><h1>Put your scouting conviction to the test.</h1><p className="muted">Fund a limit order, trade with another verified tester, and follow every fill. This market matches customer orders; it never supplies an automatic buyer.</p></div><Link className="button secondary" href="/real-market">Real Market plan</Link></header>
     {params.notice && <div role="status" className="notice successNotice">{params.notice}</div>}{params.error && <div role="alert" className="notice errorNotice">{params.error}</div>}

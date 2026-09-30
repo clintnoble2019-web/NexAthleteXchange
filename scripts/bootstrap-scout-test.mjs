@@ -4,7 +4,7 @@ if (process.env.SCOUT_TEST_DATABASE !== "1") throw new Error("Bootstrap is only 
 const prisma = new PrismaClient();
 let initialized;
 try {
-  initialized = await prisma.scoutOrder.count({ where: { requestKey: { in: ["setup-seller-order-v1", "setup-buyer-order-v1", "setup-resting-buy-v1"] } } }) === 3;
+  initialized = await prisma.scoutOrder.count({ where: { user: { email: { in: ["scout_buyer@example.test", "scout_seller@example.test"] } }, requestKey: { in: ["setup-seller-order-v1", "setup-buyer-order-v1", "setup-resting-buy-v1"] } } }) === 3;
 } finally { await prisma.$disconnect(); }
 if (initialized) console.log("Existing test data preserved; bootstrap skipped.");
 else for (const script of ["prisma/seed.ts", "scripts/setup-scout-test.ts"]) {

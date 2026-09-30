@@ -9,7 +9,7 @@ async function main() {
   const password = process.env.SCOUT_TEST_PASSWORD || "";
   if (password.length < 12) throw new Error("Provide SCOUT_TEST_PASSWORD with at least 12 characters through a secret environment variable.");
   // A repeated deployment must not refill balances, reset orders, or unfreeze testers.
-  if (await prisma.scoutOrder.count({ where: { requestKey: { in: ["setup-seller-order-v1", "setup-buyer-order-v1", "setup-resting-buy-v1"] } } }) === 3) {
+  if (await prisma.scoutOrder.count({ where: { user: { email: { in: ["scout_buyer@example.test", "scout_seller@example.test"] } }, requestKey: { in: ["setup-seller-order-v1", "setup-buyer-order-v1", "setup-resting-buy-v1"] } } }) === 3) {
     console.log("Existing customer test fixtures retained."); return;
   }
   for (const [index, position] of ["QB", "WR", "RB"].entries()) {
