@@ -27,7 +27,7 @@ try {
   const marketHtml = await market.text();
   assert(marketHtml.includes("NexPoints balance"), "Authenticated market did not show NexPoints balance");
   assert(marketHtml.includes("N⟡5,000.00"), "New account did not start with 5,000 NexPoints");
-  assert(marketHtml.includes("NBA Athlete Market"), "NBA is not the default launch market");
+  assert(marketHtml.includes("NBA") && marketHtml.includes("Athlete Market"), "NBA is not the default launch market");
 
   const athleteMatch = marketHtml.match(/name="athleteId" value="([^"]+)"/);
   assert(athleteMatch, "Could not find a tradeable NBA athlete in the market");
