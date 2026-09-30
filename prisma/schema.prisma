@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Sport {
+  MLB
+  NFL
+  NBA
+  SOCCER
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum LedgerType {
+  SIGNUP_CREDIT
+  TRADE_BUY
+  TRADE_SELL
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  username     String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  wallet       Wallet?
+  positions    Position[]
+  trades       Trade[]
+  ledger       LedgerEntry[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Decimal  @default(100000) @db.Decimal(18, 2)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Athlete {
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  sport          Sport
+  league         String
+  team           String
+  position       String
+  currentPrice   Decimal   @db.Decimal(18, 2)
+  previousPrice  Decimal   @db.Decimal(18, 2)
+  performance    Int       @default(50)
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  positions      Position[]
+  trades         Trade[]
+  @@index([sport, active])
+}
+
+model Position {
+  id          String   @id @default(cuid())
+  userId      String
+  athleteId   String
+  quantity    Decimal  @db.Decimal(18, 4)
+  averageCost Decimal  @db.Decimal(18, 4)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  athlete     Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  @@unique([userId, athleteId])
+  @@index([userId])
+}
+
+model Trade {
+  id        String    @id @default(cuid())
+  userId    String
+  athleteId String
+  side      TradeSide
+  quantity  Decimal   @db.Decimal(18, 4)
+  price     Decimal   @db.Decimal(18, 4)
+  total     Decimal   @db.Decimal(18, 2)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  athlete   Athlete   @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  @@index([userId, createdAt])
+  @@index([athleteId, createdAt])
+}
+
+model LedgerEntry {
+  id        String     @id @default(cuid())
+  userId    String
+  type      LedgerType
+  amount    Decimal    @db.Decimal(18, 2)
+  balance   Decimal    @db.Decimal(18, 2)
+  reference String?
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}

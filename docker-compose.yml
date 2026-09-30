@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nexathletexchange
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexathletexchange_pg:/var/lib/postgresql/data
+volumes:
+  nexathletexchange_pg:
