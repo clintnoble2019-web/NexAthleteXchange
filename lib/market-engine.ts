@@ -20,6 +20,7 @@ import {
   calculateNbaLiveImpact,
   startOfUtcDay,
 } from "./live-pricing";
+import { gamePerformanceValue, lifetimePerformanceMarketCap } from "./market-cap";
 
 function providerPlayerId(providerKey: string | null) {
   if (!providerKey) return null;
@@ -177,8 +178,6 @@ function eligibleLiveRows(rows: BdlLivePlayerStat[], now: Date) {
     if (row.statusState === "in_progress") return true;
     if (row.statusState !== "final") return false;
     if (row.gameDate === today) return true;
-    // Late West Coast games can finish after UTC midnight. Keep yesterday's
-    // final lines through 10:00 UTC, then stop carrying them into a new day.
     return now.getUTCHours() < 10 && row.gameDate === yesterday;
   });
 }
@@ -251,49 +250,103 @@ async function updateLiveSport(prisma: PrismaClient, sport: LaunchSport, season:
     athlete: (typeof athletes)[number];
     nextPrice: number;
     gameId: number;
+    performanceValue: number;
+    hasPriceMove: boolean;
   }> = [];
   const gameIds = new Set<number>();
 
   for (const [playerId, liveRow] of rowsByPlayer) {
     const athlete = athleteByPlayerId.get(playerId);
     if (!athlete) continue;
+
     const impact = sport === "NBA"
       ? calculateNbaLiveImpact(liveRow.stats, seasonStatsByPlayer.get(playerId))
       : calculateMlbLiveImpact(liveRow.stats);
-    if (impact === 0) continue;
 
     const openPrice = openByAthlete.get(athlete.id) ?? Number(athlete.currentPrice);
     const baselinePrice = baselineByAthlete.get(athlete.id) ?? openPrice;
     const liveTarget = baselinePrice * (1 + impact);
-    const nextPrice = calculateDailyBoundedTargetPrice(openPrice, liveTarget);
+    const nextPrice = impact === 0
+      ? Number(athlete.currentPrice)
+      : calculateDailyBoundedTargetPrice(openPrice, liveTarget);
+    const performanceValue = gamePerformanceValue(baselinePrice, impact);
+    const hasPriceMove = Math.abs(nextPrice - Number(athlete.currentPrice)) >= 0.005;
+
     gameIds.add(liveRow.gameId);
-    if (Math.abs(nextPrice - Number(athlete.currentPrice)) >= 0.005) {
-      assignments.push({ athlete, nextPrice, gameId: liveRow.gameId });
-    }
+    assignments.push({ athlete, nextPrice, gameId: liveRow.gameId, performanceValue, hasPriceMove });
   }
 
   for (let i = 0; i < assignments.length; i += 40) {
     const chunk = assignments.slice(i, i + 40);
-    const operations = chunk.flatMap((assignment) => [
-      prisma.athlete.update({
-        where: { id: assignment.athlete.id },
-        data: {
-          previousPrice: assignment.athlete.currentPrice,
-          currentPrice: assignment.nextPrice,
+    await prisma.$transaction(
+      chunk.map((assignment) => prisma.performanceValueEvent.upsert({
+        where: {
+          athleteId_gameId: {
+            athleteId: assignment.athlete.id,
+            gameId: assignment.gameId,
+          },
         },
-      }),
-      prisma.priceSnapshot.create({
-        data: {
+        update: { value: assignment.performanceValue },
+        create: {
           athleteId: assignment.athlete.id,
-          price: assignment.nextPrice,
-          source: `live-game-${sport.toLowerCase()}-${assignment.gameId}`,
+          sport: prismaSport,
+          gameId: assignment.gameId,
+          value: assignment.performanceValue,
         },
-      }),
-    ]);
+      })),
+    );
+  }
+
+  const affectedAthleteIds = [...new Set(assignments.map((assignment) => assignment.athlete.id))];
+  const totals = affectedAthleteIds.length > 0
+    ? await prisma.performanceValueEvent.groupBy({
+        by: ["athleteId"],
+        where: { athleteId: { in: affectedAthleteIds } },
+        _sum: { value: true },
+      })
+    : [];
+  const marketCapByAthlete = new Map(
+    totals.map((row) => [row.athleteId, lifetimePerformanceMarketCap([Number(row._sum.value ?? 0)])]),
+  );
+
+  for (let i = 0; i < assignments.length; i += 40) {
+    const chunk = assignments.slice(i, i + 40);
+    const operations = chunk.flatMap((assignment) => {
+      const marketCap = marketCapByAthlete.get(assignment.athlete.id) ?? 0;
+      if (!assignment.hasPriceMove) {
+        return [prisma.athlete.update({
+          where: { id: assignment.athlete.id },
+          data: { marketCap },
+        })];
+      }
+
+      return [
+        prisma.athlete.update({
+          where: { id: assignment.athlete.id },
+          data: {
+            previousPrice: assignment.athlete.currentPrice,
+            currentPrice: assignment.nextPrice,
+            marketCap,
+          },
+        }),
+        prisma.priceSnapshot.create({
+          data: {
+            athleteId: assignment.athlete.id,
+            price: assignment.nextPrice,
+            source: `live-game-${sport.toLowerCase()}-${assignment.gameId}`,
+          },
+        }),
+      ];
+    });
     await prisma.$transaction(operations);
   }
 
-  return { sport, tracked: rowsByPlayer.size, moved: assignments.length, liveGames: gameIds.size };
+  return {
+    sport,
+    tracked: rowsByPlayer.size,
+    moved: assignments.filter((assignment) => assignment.hasPriceMove).length,
+    liveGames: gameIds.size,
+  };
 }
 
 export async function runLiveMarketUpdate(prisma: PrismaClient, now = new Date()) {
