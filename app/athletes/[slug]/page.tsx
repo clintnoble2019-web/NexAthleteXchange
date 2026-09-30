@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { formatNexPoints } from "@/lib/nexpoints";
 import ShareTradeForm from "@/app/components/ShareTradeForm";
+import AutoRefresh from "@/app/components/AutoRefresh";
+import WatchlistButton from "@/app/components/WatchlistButton";
 
 type Param = string | string[] | undefined;
 function first(value: Param) { return Array.isArray(value) ? value[0] : value; }
@@ -17,7 +19,10 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   ]);
   if (!athlete || !athlete.marketEnabled) notFound();
 
-  const holding = user ? await prisma.position.findUnique({ where: { userId_athleteId: { userId: user.id, athleteId: athlete.id } } }) : null;
+  const [holding, watchlistEntry] = user ? await Promise.all([
+    prisma.position.findUnique({ where: { userId_athleteId: { userId: user.id, athleteId: athlete.id } } }),
+    prisma.watchlistEntry.findUnique({ where: { userId_athleteId: { userId: user.id, athleteId: athlete.id } } }),
+  ]) : [null, null];
   const current = Number(athlete.currentPrice);
   const previous = Number(athlete.previousPrice);
   const move = previous > 0 ? ((current - previous) / previous) * 100 : 0;
@@ -29,7 +34,7 @@ export default async function AthletePage({ params, searchParams }: { params: Pr
   const marketCap = Number(athlete.marketCap);
 
   return <main className="shell">
-    <div className="hero"><div><p className="muted">{athlete.league} • {athlete.team} • {athlete.position}</p><h1>{athlete.name}</h1></div><div><span className="muted">Current price</span><h2>{formatNexPoints(current)}</h2><div className={move >= 0 ? "positive" : "negative"}>{move >= 0 ? "+" : ""}{move.toFixed(2)}%</div></div></div>
+    <div className="hero"><div><p className="muted">{athlete.league} • {athlete.team} • {athlete.position}</p><h1>{athlete.name}</h1>{user && <WatchlistButton athleteId={athlete.id} returnTo={`/athletes/${athlete.slug}`} watching={Boolean(watchlistEntry)}/>}</div><div className="heroActions"><AutoRefresh/><div><span className="muted">Current price</span><h2>{formatNexPoints(current)}</h2><div className={move >= 0 ? "positive" : "negative"}>{move >= 0 ? "+" : ""}{move.toFixed(2)}%</div></div></div></div>
 
     {trade && <div className="notice successNotice">{trade === "SELL" ? "Sale completed." : "Purchase completed."} {owned > 0 ? `You now own ${owned.toFixed(4)} shares.` : "Your position is now closed."}</div>}
     {tradeError && <div className="notice errorNotice">{tradeError}</div>}
