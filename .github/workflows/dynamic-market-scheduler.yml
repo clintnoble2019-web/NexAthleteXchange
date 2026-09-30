@@ -59,10 +59,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: package.json
 
       - name: Install dependencies
         if: steps.secrets.outputs.ready == 'true'
-        run: npm ci
+        run: npm install
 
       - name: Generate Prisma client
         if: steps.secrets.outputs.ready == 'true'
