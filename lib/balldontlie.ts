@@ -27,6 +27,13 @@ export type BdlMlbSeasonStat = {
   stats: Record<string, unknown>;
 };
 
+export type BdlLivePlayerStat = {
+  playerId: number;
+  gameId: number;
+  statusState: string;
+  stats: Record<string, unknown>;
+};
+
 type Page<T> = { data: T[]; meta?: { next_cursor?: number | string | null } };
 
 const BASE_URL = "https://api.balldontlie.io";
@@ -161,5 +168,71 @@ export async function getBdlMlbSeasonStats(season: number): Promise<BdlMlbSeason
     const playerId = Number(row.player?.id ?? row.player_id);
     if (!Number.isFinite(playerId)) return [];
     return [{ playerId, stats: row as Record<string, unknown> }];
+  });
+}
+
+export async function getBdlNbaLiveStats(dates: string[]): Promise<BdlLivePlayerStat[]> {
+  const rows = await collectPages<any>((cursor) => {
+    const query = new URLSearchParams({ per_page: "100", season_type: "regular" });
+    for (const date of dates) query.append("dates[]", date);
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `/v1/stats?${query}`;
+  });
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    const gameId = Number(row.game?.id ?? row.game_id);
+    if (!Number.isFinite(playerId) || !Number.isFinite(gameId)) return [];
+    const statusState = String(row.game?.status_state ?? row.status_state ?? "unknown").toLowerCase();
+    return [{
+      playerId,
+      gameId,
+      statusState,
+      stats: {
+        ...row,
+        tov: row.tov ?? row.turnover ?? row.turnovers,
+      } as Record<string, unknown>,
+    }];
+  });
+}
+
+export async function getBdlMlbLiveStats(dates: string[]): Promise<BdlLivePlayerStat[]> {
+  const games = await collectPages<any>((cursor) => {
+    const query = new URLSearchParams({ per_page: "100", season_type: "regular" });
+    for (const date of dates) query.append("dates[]", date);
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `/mlb/v1/games?${query}`;
+  });
+
+  const eligibleGames = games.filter((game) => {
+    const state = String(game.status_state ?? "unknown").toLowerCase();
+    return state === "in_progress" || state === "final";
+  });
+  const statusByGame = new Map<number, string>(eligibleGames.map((game) => [Number(game.id), String(game.status_state ?? "unknown").toLowerCase()]));
+  const gameIds = eligibleGames.map((game) => Number(game.id)).filter(Number.isFinite);
+  if (gameIds.length === 0) return [];
+
+  const rows: any[] = [];
+  for (let i = 0; i < gameIds.length; i += 20) {
+    const batch = gameIds.slice(i, i + 20);
+    const batchRows = await collectPages<any>((cursor) => {
+      const query = new URLSearchParams({ per_page: "100" });
+      for (const gameId of batch) query.append("game_ids[]", String(gameId));
+      if (cursor != null) query.set("cursor", String(cursor));
+      return `/mlb/v1/stats?${query}`;
+    });
+    rows.push(...batchRows);
+  }
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    const gameId = Number(row.game?.id ?? row.game_id);
+    if (!Number.isFinite(playerId) || !Number.isFinite(gameId)) return [];
+    return [{
+      playerId,
+      gameId,
+      statusState: statusByGame.get(gameId) ?? String(row.game?.status_state ?? row.status_state ?? "unknown").toLowerCase(),
+      stats: row as Record<string, unknown>,
+    }];
   });
 }
