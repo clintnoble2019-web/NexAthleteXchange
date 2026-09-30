@@ -11,7 +11,24 @@ async function syncSport(sport: BdlSport) {
   const prismaSport = Sport[sport];
   const [teams, players] = await Promise.all([getBdlTeams(sport), getBdlActivePlayers(sport)]);
 
-  for (const team of teams) {
+  // BALLDONTLIE's teams endpoint includes historical franchises. Build the
+  // current team set from the active-player roster so the UI only exposes
+  // franchises that currently have active players.
+  const currentTeamAbbreviations = new Set(
+    players
+      .map((player) => player.team?.abbreviation)
+      .filter((abbreviation): abbreviation is string => Boolean(abbreviation))
+  );
+  const currentTeams = teams.filter((team) => currentTeamAbbreviations.has(team.abbreviation));
+
+  // Preserve historical team records for data integrity, but keep them out of
+  // the launch UI unless they become current again in a future roster sync.
+  await prisma.team.updateMany({
+    where: { sport: prismaSport, dataProvider: "balldontlie" },
+    data: { active: false }
+  });
+
+  for (const team of currentTeams) {
     await prisma.team.upsert({
       where: { sport_abbreviation: { sport: prismaSport, abbreviation: team.abbreviation } },
       update: {
@@ -33,7 +50,8 @@ async function syncSport(sport: BdlSport) {
         abbreviation: team.abbreviation,
         city: team.city,
         conference: team.conference,
-        division: team.division
+        division: team.division,
+        active: true
       }
     });
   }
@@ -81,7 +99,7 @@ async function syncSport(sport: BdlSport) {
     }
   }
 
-  console.log(`${sport}: ${teams.length} teams synced, ${updated} existing players updated, ${created} roster players imported pending pricing.`);
+  console.log(`${sport}: ${currentTeams.length} current teams synced, ${updated} existing players updated, ${created} roster players imported pending pricing.`);
 }
 
 async function main() {
