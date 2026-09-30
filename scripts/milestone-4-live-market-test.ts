@@ -5,6 +5,7 @@ import {
   calculateMlbLiveImpact,
   calculateNbaLiveImpact,
 } from "../lib/live-pricing";
+import { gamePerformanceValue, lifetimePerformanceMarketCap } from "../lib/market-cap";
 
 const prisma = new PrismaClient();
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:3000";
@@ -46,6 +47,11 @@ async function main() {
   assert(mlbHotGame > 0 && mlbHotGame <= 0.06, "Strong MLB live game did not create a bounded positive impact");
   assert(mlbColdGame < 0 && mlbColdGame >= -0.06, "Poor MLB live game did not create a bounded negative impact");
 
+  assert(gamePerformanceValue(50, 0.06) === 300, "Positive game performance value was calculated incorrectly");
+  assert(gamePerformanceValue(50, -0.06) === -300, "Negative game performance value was calculated incorrectly");
+  assert(lifetimePerformanceMarketCap([300, -100, 250]) === 450, "Lifetime performance market cap did not sum game value correctly");
+  assert(lifetimePerformanceMarketCap([-300, 100]) === 0, "Market cap must never display below zero");
+
   const athlete = await prisma.athlete.create({
     data: {
       name: `M4 Test Athlete ${unique}`,
@@ -57,6 +63,7 @@ async function main() {
       currentPrice: 10,
       previousPrice: 10,
       performance: 70,
+      marketCap: 1234.56,
       active: true,
       marketEnabled: true,
     },
@@ -89,6 +96,9 @@ async function main() {
     assert(athleteHtml.includes("2.5000"), "Athlete page did not show fractional purchased shares");
     assert(athleteHtml.includes("Fractional trading from 0.01 shares"), "Athlete page did not expose fractional-share controls");
     assert(athleteHtml.includes("The chart changes only when the NexGame market engine actually reprices the athlete."), "Price-history behavior was not explained");
+    assert(athleteHtml.includes("Market Cap"), "Athlete page did not show Market Cap");
+    assert(athleteHtml.includes("Lifetime Performance Value"), "Athlete page did not define Market Cap as Lifetime Performance Value");
+    assert(!athleteHtml.includes("NexGame Performance"), "Legacy score system is still visible on athlete page");
 
     await prisma.athlete.update({ where: { id: athlete.id }, data: { previousPrice: 10, currentPrice: 12 } });
 
@@ -136,10 +146,11 @@ async function main() {
     assert(blocked.status === 303, "Disabled-athlete trade did not redirect safely");
     assert((blocked.headers.get("location") || "").includes("tradeError="), "Disabled-athlete trade did not surface an error");
 
-    console.log("Milestone 4 live market + dynamic pricing + fractional-share trading test: PASS");
+    console.log("Milestone 4 live market + lifetime-performance market cap + fractional-share trading test: PASS");
   } finally {
     await prisma.trade.deleteMany({ where: { athleteId: athlete.id } });
     await prisma.position.deleteMany({ where: { athleteId: athlete.id } });
+    await prisma.performanceValueEvent.deleteMany({ where: { athleteId: athlete.id } });
     await prisma.priceSnapshot.deleteMany({ where: { athleteId: athlete.id } });
     await prisma.athlete.delete({ where: { id: athlete.id } }).catch(() => undefined);
     await prisma.user.delete({ where: { email } }).catch(() => undefined);
