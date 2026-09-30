@@ -116,7 +116,7 @@ export function verifyPersonaWebhook(rawBody: string, signatureHeader: string | 
 
 function allowedLocation(country: string, region: string) {
   const rules = (process.env.REAL_MARKET_ALLOWED_REGIONS || "").split(",").map(x => x.trim().toUpperCase()).filter(Boolean);
-  if (!rules.length) return true; // Sandbox may run before a live jurisdiction allowlist is approved.
+  if (!rules.length) return true;
   const c = country.toUpperCase(), r = region.toUpperCase();
   return rules.some(rule => rule === c || rule === `${c}-*` || rule === `${c}:${r}` || rule === `${c}-${r}`);
 }
@@ -183,7 +183,7 @@ export async function processPersonaWebhook(rawBody: string, signatureHeader: st
         where: { userId },
         data: {
           status: nextStatus,
-          identityHash: nextStatus === "VERIFIED" ? (current.identityHash || identityHash) : current.identityHash,
+          identityHash: nextStatus === "VERIFIED" ? identityHash : current.identityHash,
           reviewedAt: new Date(),
         },
       });
