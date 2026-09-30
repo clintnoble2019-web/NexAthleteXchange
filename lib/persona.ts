@@ -36,9 +36,11 @@ function personaHeaders() {
 
 async function personaRequest(path: string, init?: RequestInit) {
   const base = process.env.PERSONA_API_BASE?.trim() || DEFAULT_PERSONA_API;
+  const headers = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(personaHeaders())) headers.set(key, value);
   const response = await fetch(`${base}${path}`, {
     ...init,
-    headers: { ...personaHeaders(), ...(init?.headers || {}) },
+    headers,
     cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
@@ -53,7 +55,7 @@ export async function createPersonaInquiry(userId: string, redirectUri: string) 
   if (!personaConfigured()) throw new Error("Persona identity verification is not configured.");
   const existing = await prisma.realEnrollment.findUnique({ where: { userId } });
   const existingInquiry = existing?.providerRef?.startsWith("persona:") ? existing.providerRef.slice("persona:".length) : null;
-  let inquiryId = existingInquiry;
+  let inquiryId: string | null = existingInquiry;
 
   if (!inquiryId || existing?.status === "REJECTED") {
     const result = await personaRequest("/inquiries", {
@@ -65,8 +67,9 @@ export async function createPersonaInquiry(userId: string, redirectUri: string) 
         },
       }),
     });
-    inquiryId = result?.data?.id;
-    if (!/^inq_[A-Za-z0-9]+$/.test(String(inquiryId || ""))) throw new Error("Persona did not return a valid inquiry identifier.");
+    const returnedInquiryId = String(result?.data?.id || "");
+    if (!/^inq_[A-Za-z0-9]+$/.test(returnedInquiryId)) throw new Error("Persona did not return a valid inquiry identifier.");
+    inquiryId = returnedInquiryId;
     await prisma.realEnrollment.upsert({
       where: { userId },
       create: { userId, environment: "SANDBOX", status: "PENDING", providerRef: `persona:${inquiryId}` },
@@ -83,6 +86,7 @@ export async function createPersonaInquiry(userId: string, redirectUri: string) 
     });
   }
 
+  if (!inquiryId) throw new Error("Persona inquiry could not be initialized.");
   const hosted = new URL(process.env.PERSONA_HOSTED_FLOW_ORIGIN?.trim() || DEFAULT_PERSONA_HOSTED);
   hosted.searchParams.set("inquiry-id", inquiryId);
   hosted.searchParams.set("redirect-uri", redirectUri);
