@@ -3,6 +3,7 @@ import { Prisma, Sport } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { formatNexPoints, NEXPOINTS_SYMBOL } from "@/lib/nexpoints";
+import ShareTradeForm from "@/app/components/ShareTradeForm";
 
 type Param = string | string[] | undefined;
 type MarketSearchParams = {
@@ -122,7 +123,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
       <div>
         <p className="muted">FREE MARKET • NBA + MLB</p>
         <h1>{sportName} Athlete Market</h1>
-        <p className="muted">Trade performance with NexPoints. Build your portfolio.</p>
+        <p className="muted">Trade athlete shares with NexPoints. Fractional shares start at 0.01.</p>
       </div>
       {user ? <div><span className="muted">NexPoints balance</span><h2>{formatNexPoints(Number(user.wallet?.balance || 0))}</h2></div> : <Link className="button" href="/signup">Start with {NEXPOINTS_SYMBOL}5,000</Link>}
     </div>
@@ -162,7 +163,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
 
     <section className="card marketCard">
       <table className="market">
-        <thead><tr><th>Player</th><th>Team</th><th>Price</th><th>Move</th><th className="hide-mobile">Score</th><th>Trade</th></tr></thead>
+        <thead><tr><th>Player</th><th>Team</th><th>Price / share</th><th>Move</th><th className="hide-mobile">Score</th><th>Trade</th></tr></thead>
         <tbody>{athletes.map((athlete) => {
           const current = Number(athlete.currentPrice);
           const previous = Number(athlete.previousPrice);
@@ -173,13 +174,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
             <td className="price">{formatNexPoints(current)}</td>
             <td className={move >= 0 ? "positive" : "negative"}>{move >= 0 ? "+" : ""}{move.toFixed(2)}%</td>
             <td className="hide-mobile">{athlete.performance}</td>
-            <td>{user ? <form className="tradeform" action="/api/trade" method="post">
-              <input type="hidden" name="athleteId" value={athlete.id}/>
-              <input type="hidden" name="side" value="BUY"/>
-              <input type="hidden" name="returnTo" value={returnTo}/>
-              <input aria-label={`Buy ${athlete.name} units`} name="quantity" type="number" min="0.01" step="0.01" defaultValue="1"/>
-              <button>Buy</button>
-            </form> : <Link className="button" href="/login">Log in</Link>}</td>
+            <td>{user ? <ShareTradeForm athleteId={athlete.id} athleteName={athlete.name} side="BUY" price={current} returnTo={returnTo} compact/> : <Link className="button" href="/login">Log in</Link>}</td>
           </tr>;
         })}</tbody>
       </table>
