@@ -1,10 +1,11 @@
 import { PrismaClient, Sport } from "@prisma/client";
-import { getBdlMlbSeasonStats, getBdlNbaSeasonAverages } from "../lib/balldontlie";
+import { getBdlMlbSeasonStats, getBdlNbaSeasonAverages, getBdlNflSeasonStats } from "../lib/balldontlie";
 import {
   buildPercentiles,
   initialPricingConfig,
   mlbPerformanceRawScore,
   nbaPerformanceRawScore,
+  nflPerformanceRawScore,
   performanceFromPercentile,
   priceFromPercentile,
   type LaunchSport
@@ -14,7 +15,7 @@ const prisma = new PrismaClient();
 
 function providerPlayerId(providerKey: string | null) {
   if (!providerKey) return null;
-  const match = providerKey.match(/^bdl:(NBA|MLB):player:(\d+)$/);
+  const match = providerKey.match(/^bdl:(NBA|MLB|NFL):player:(\d+)$/);
   return match ? Number(match[2]) : null;
 }
 
@@ -28,12 +29,29 @@ function defaultMlbSeason(now = new Date()) {
   return now.getUTCMonth() >= 2 ? year : year - 1;
 }
 
+function defaultNflSeason(now = new Date()) {
+  const year = now.getUTCFullYear();
+  return now.getUTCMonth() >= 7 ? year : year - 1;
+}
+
 function seasonFromEnv(name: string, fallback: number) {
   const value = process.env[name];
   if (!value) return fallback;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 2000 || parsed > 2100) throw new Error(`${name} must be a valid season year`);
   return parsed;
+}
+
+async function statsForSport(sport: LaunchSport, season: number) {
+  if (sport === "NBA") return getBdlNbaSeasonAverages(season);
+  if (sport === "MLB") return getBdlMlbSeasonStats(season);
+  return getBdlNflSeasonStats(season);
+}
+
+function rawScoreForSport(sport: LaunchSport, stats: Record<string, unknown>) {
+  if (sport === "NBA") return nbaPerformanceRawScore(stats);
+  if (sport === "MLB") return mlbPerformanceRawScore(stats);
+  return nflPerformanceRawScore(stats);
 }
 
 async function priceSport(sport: LaunchSport, season: number) {
@@ -49,17 +67,13 @@ async function priceSport(sport: LaunchSport, season: number) {
     return;
   }
 
-  const statsRows = sport === "NBA"
-    ? await getBdlNbaSeasonAverages(season)
-    : await getBdlMlbSeasonStats(season);
+  const statsRows = await statsForSport(sport, season);
   const statsByPlayer = new Map(statsRows.map((row) => [row.playerId, row.stats]));
 
   const ranked = athletes.map((athlete) => {
     const playerId = providerPlayerId(athlete.providerKey);
     const stats = playerId == null ? undefined : statsByPlayer.get(playerId);
-    const rawScore = stats
-      ? (sport === "NBA" ? nbaPerformanceRawScore(stats) : mlbPerformanceRawScore(stats))
-      : null;
+    const rawScore = stats ? rawScoreForSport(sport, stats) : null;
     return { athlete, playerId, rawScore };
   });
 
@@ -81,10 +95,6 @@ async function priceSport(sport: LaunchSport, season: number) {
     };
   });
 
-  // Use Prisma's batch transaction API instead of an interactive transaction.
-  // Hosted Postgres adds enough network latency that the previous callback-style
-  // transaction could exceed Prisma's 5-second interactive transaction timeout
-  // while pricing a large roster.
   for (let i = 0; i < assignments.length; i += 40) {
     const chunk = assignments.slice(i, i + 40);
     const operations = chunk.flatMap((assignment) => [
@@ -119,9 +129,11 @@ async function priceSport(sport: LaunchSport, season: number) {
 async function main() {
   const nbaSeason = seasonFromEnv("NEX_NBA_PRICING_SEASON", defaultNbaSeason());
   const mlbSeason = seasonFromEnv("NEX_MLB_PRICING_SEASON", defaultMlbSeason());
-  console.log(`Initializing NexPoints prices using NBA ${nbaSeason} and MLB ${mlbSeason} regular-season data...`);
+  const nflSeason = seasonFromEnv("NEX_NFL_PRICING_SEASON", defaultNflSeason());
+  console.log(`Initializing NexPoints prices using NBA ${nbaSeason}, MLB ${mlbSeason}, and NFL ${nflSeason} regular-season data...`);
   await priceSport("NBA", nbaSeason);
   await priceSport("MLB", mlbSeason);
+  await priceSport("NFL", nflSeason);
 }
 
 main()
