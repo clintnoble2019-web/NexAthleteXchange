@@ -1,5 +1,10 @@
 import { PrismaClient, Sport, TradeSide } from "@prisma/client";
-import { calculateBoundedTargetPrice } from "../lib/live-pricing";
+import {
+  calculateBoundedTargetPrice,
+  calculateDailyBoundedTargetPrice,
+  calculateMlbLiveImpact,
+  calculateNbaLiveImpact,
+} from "../lib/live-pricing";
 
 const prisma = new PrismaClient();
 const baseUrl = process.env.BASE_URL || "http://127.0.0.1:3000";
@@ -22,6 +27,24 @@ async function main() {
   assert(calculateBoundedTargetPrice(10, 20) === 11.2, "Upward live reprice did not respect 12% cap");
   assert(calculateBoundedTargetPrice(10, 2) === 8.8, "Downward live reprice did not respect 12% cap");
   assert(calculateBoundedTargetPrice(10, 10.5) === 10.5, "Live reprice did not move directly to nearby fair value");
+  assert(calculateDailyBoundedTargetPrice(10, 20) === 11.2, "Daily opening-price cap failed upward");
+  assert(calculateDailyBoundedTargetPrice(10, 2) === 8.8, "Daily opening-price cap failed downward");
+
+  const nbaHotGame = calculateNbaLiveImpact(
+    { min: "34", pts: 40, reb: 9, ast: 10, stl: 2, blk: 1, turnover: 2, plus_minus: 12 },
+    { min: 34, pts: 25, reb: 6, ast: 6, stl: 1, blk: 0.5, tov: 3, plus_minus: 2 },
+  );
+  const nbaColdGame = calculateNbaLiveImpact(
+    { min: "32", pts: 8, reb: 2, ast: 2, stl: 0, blk: 0, turnover: 5, plus_minus: -14 },
+    { min: 34, pts: 25, reb: 6, ast: 6, stl: 1, blk: 0.5, tov: 3, plus_minus: 2 },
+  );
+  assert(nbaHotGame > 0 && nbaHotGame <= 0.06, "Strong NBA live game did not create a bounded positive impact");
+  assert(nbaColdGame < 0 && nbaColdGame >= -0.06, "Poor NBA live game did not create a bounded negative impact");
+
+  const mlbHotGame = calculateMlbLiveImpact({ at_bats: 4, hits: 3, doubles: 1, home_runs: 1, rbi: 4, runs: 2, strikeouts: 0 });
+  const mlbColdGame = calculateMlbLiveImpact({ at_bats: 4, hits: 0, home_runs: 0, rbi: 0, runs: 0, strikeouts: 3 });
+  assert(mlbHotGame > 0 && mlbHotGame <= 0.06, "Strong MLB live game did not create a bounded positive impact");
+  assert(mlbColdGame < 0 && mlbColdGame >= -0.06, "Poor MLB live game did not create a bounded negative impact");
 
   const athlete = await prisma.athlete.create({
     data: {
@@ -113,7 +136,7 @@ async function main() {
     assert(blocked.status === 303, "Disabled-athlete trade did not redirect safely");
     assert((blocked.headers.get("location") || "").includes("tradeError="), "Disabled-athlete trade did not surface an error");
 
-    console.log("Milestone 4 live market + fractional-share trading test: PASS");
+    console.log("Milestone 4 live market + dynamic pricing + fractional-share trading test: PASS");
   } finally {
     await prisma.trade.deleteMany({ where: { athleteId: athlete.id } });
     await prisma.position.deleteMany({ where: { athleteId: athlete.id } });
