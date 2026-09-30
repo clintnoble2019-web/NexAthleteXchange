@@ -16,7 +16,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <nav aria-label="Main navigation" className="nav"><Link className="brand" href="/">NexAthleteXchange</Link><div className="navlinks">
       <Link href="/market">Free Market</Link><Link href="/real-market">Real Market</Link><Link href="/discover">Discover</Link><Link href="/leaderboard">Leaderboard</Link><Link href="/tutorial">How it works</Link>{user && <Link href="/watchlist">Watchlist</Link>}<Link href="/portfolio">Portfolio</Link>
       {user && isAdmin(user.id) && <Link href="/admin">Admin</Link>}
-      {user && realMarketCustomerTestEnabled() && <Link href="/real-market/test">Test Market</Link>}
+      {user && realMarketCustomerTestEnabled() && <><Link href="/real-market/test">Test Market</Link><Link href="/real-market/funding">USDC Funding</Link></>}
       {user ? <form action="/api/auth/logout" method="post"><button className="secondary">Log out</button></form> : <Link href="/login">Log in</Link>}
     </div></nav><div id="main-content">{children}</div>
     <footer className="shell" style={{paddingTop: 32, paddingBottom: 32}}><p className="muted"><Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/risk-disclosure">Real Market Risks</Link></p></footer>

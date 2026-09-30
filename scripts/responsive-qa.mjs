@@ -20,17 +20,20 @@ try {
   const athlete = await prisma.athlete.findFirstOrThrow({ where: { active: true, marketEnabled: true } });
   let scoutToken;
   let testRoute;
+  let fundingRoute;
   if (process.env.REAL_MARKET_CUSTOMER_TEST === "1") {
     const tester = await prisma.user.findUniqueOrThrow({ where: { email: "scout_buyer@example.test" } });
     scoutToken = crypto.randomBytes(32).toString("hex");
     await prisma.session.create({ data: { userId: tester.id, tokenHash: crypto.createHash("sha256").update(scoutToken).digest("hex"), expiresAt: new Date(Date.now() + 3600000) } });
     const testPosition = await prisma.scoutPosition.findFirstOrThrow({ where: { userId: tester.id, quantity: { gt: 0 } } });
     testRoute = "/real-market/test?athlete=" + testPosition.athleteId;
+    fundingRoute = "/real-market/funding";
   }
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of ["/", "/tutorial", "/real-market", "/market", "/portfolio", "/admin", "/real-market/verify", "/athletes/" + athlete.slug, ...(testRoute ? [testRoute] : [])]) {
-      await context.addCookies([{ name: "nax_session", value: route === testRoute ? scoutToken : token, url: base }]);
+    for (const route of ["/", "/tutorial", "/real-market", "/market", "/portfolio", "/admin", "/real-market/verify", "/athletes/" + athlete.slug, ...(testRoute ? [testRoute] : []), ...(fundingRoute ? [fundingRoute] : [])]) {
+      const useScoutSession = route === testRoute || route === fundingRoute;
+      await context.addCookies([{ name: "nax_session", value: useScoutSession ? scoutToken : token, url: base }]);
       const response = await page.goto(base + route);
       if (response?.status() !== 200) throw new Error("Could not load " + route);
       await page.locator("main h1").waitFor({ state: "visible" });
@@ -55,6 +58,7 @@ try {
         if (await page.getByRole("button", { name: "ALL", exact: true }).getAttribute("aria-pressed") !== "true") throw new Error("Chart range did not update.");
         if (width < 1000 && !(await page.getByLabel("Trade an athlete collectible", { exact: true }).isVisible())) throw new Error("Mobile athlete collectible picker is unavailable.");
       }
+      if (route === fundingRoute && !(await page.getByText("USDC funding", { exact: true }).isVisible())) throw new Error("Provider funding console is unavailable.");
     }
   }
   console.log("Desktop/mobile responsive QA: PASS");
