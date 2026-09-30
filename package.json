@@ -16,7 +16,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "sync:rosters": "tsx scripts/sync-balldontlie.ts",
     "init:prices": "tsx scripts/initialize-player-prices.ts",
-    "update:market": "tsx scripts/update-live-market.ts"
+    "update:market": "tsx scripts/update-live-market.ts",
+    "update:live": "tsx scripts/update-dynamic-market.ts"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",
