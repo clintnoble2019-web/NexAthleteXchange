@@ -23,6 +23,7 @@
 .summaryLink { border:1px solid #b8d4c2; color:#007e3e; padding:10px 18px; border-radius:24px; font-weight:600; white-space:nowrap; }
 .workspace { display:grid; grid-template-columns:245px minmax(0,1fr) 300px; gap:30px; align-items:start; }
 .workspace>* { min-width:0; }
+.mobilePicker { display:none; }
 .sectionHead { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
 .sectionHead h2 { font-size:17px; font-weight:600; letter-spacing:-.35px; }
 .sectionHead>span { color:var(--muted); font-size:12px; }
@@ -86,6 +87,13 @@
 .ticket h2 { font-size:17px; font-weight:600; margin-bottom:10px; }
 .orderType { font-size:12px; color:var(--ink); display:grid; gap:3px; padding-bottom:20px; }
 .orderType span { font-size:11px; color:var(--muted); }
+.quoteStrip { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; padding:12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.quoteStrip>div { display:grid; gap:4px; }
+.quoteStrip>div:last-child { text-align:right; }
+.quoteStrip span { color:var(--muted); font-size:11px; }
+.quoteStrip strong { font-size:14px; font-weight:500; font-variant-numeric:tabular-nums; }
+.ticketTools { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 8px; }
+.ticketTools button,.ticketTools a { background:transparent; color:#007e3e; font-size:11px; padding:5px 0; border-radius:0; min-height:32px; font-weight:500; }
 .orderField { display:flex!important; justify-content:space-between; align-items:center; gap:14px!important; margin-bottom:14px; font-size:13px; }
 .orderField>span { display:flex; align-items:center; width:115px; border:1px solid var(--border); border-radius:8px; padding-left:12px; background:#fafcfb; }
 .orderField input { width:115px; text-align:right; border:1px solid var(--border); border-radius:8px; padding:10px; background:#fafcfb; color:var(--ink); min-width:0; font-variant-numeric:tabular-nums; }
@@ -100,6 +108,8 @@
 .primary:hover:not(:disabled) { background:#00743a; }
 .ticketWarning { color:#785624; background:#fff9eb; padding:10px; border-radius:6px; font-size:12px; line-height:1.55; margin:0 0 14px!important; }
 .review { background:#eff8f2; color:#245f3c; padding:12px; border-radius:6px; font-size:12px; line-height:1.6; margin-bottom:14px; }
+.review strong { display:block; font-size:13px; font-weight:600; margin-bottom:8px; }
+.review p+p { margin-top:8px; }
 .editOrder { background:transparent; color:#007e3e; width:100%; margin-top:4px; }
 .buyingPower { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--border); margin-top:22px; padding-top:16px; font-size:12px; }
 .buyingPower span { color:var(--muted); }
@@ -144,3 +154,5 @@
 @media(max-width:999px) { .workspace { grid-template-columns:minmax(0,1fr) 290px; gap:26px; } .asset { grid-column:1; grid-row:1; } .ticket { grid-column:2; grid-row:1; } .athleteRail { grid-column:1/-1; border-right:0; border-top:1px solid var(--border); padding:24px 0 0; } .athleteList { display:grid; grid-template-columns:repeat(3,1fr); max-height:260px; gap:0 12px; } .search { max-width:380px; } .summary { flex-wrap:wrap; } .summaryMetric:first-child { width:100%; } .summaryMetric:first-child strong { font-size:32px; } }
 @media(max-width:650px) { .dashboard { padding:22px 18px 36px; } :global(body):has(.dashboard) :global(.nav) { padding:12px 18px; gap:8px; } :global(body):has(.dashboard) :global(.navlinks) { gap:18px; width:100%; font-size:12px; } :global(body):has(.dashboard) :global(.navlinks a[href="/real-market"]), :global(body):has(.dashboard) :global(.navlinks a[href="/portfolio"]) { display:none; } :global(body):has(.dashboard) :global(.navlinks form) { margin-left:auto; } :global(body):has(.dashboard) :global(.navlinks button) { padding:8px 12px; font-size:12px; } .topline { align-items:flex-start; } .topline h1 { font-size:20px; } .testPill { font-size:11px; padding:5px 8px; } .summary { gap:18px 22px; padding-bottom:22px; margin-bottom:24px; } .summaryMetric strong { font-size:18px; } .summaryLink { margin-left:auto; padding:8px 12px; font-size:12px; } .workspace { display:flex; flex-direction:column; gap:24px; } .asset,.ticket,.athleteRail { width:100%; } .assetName { font-size:25px; } .assetPrice { font-size:38px; margin-top:16px; } .chart { margin-top:22px; } .depthColumns { gap:20px; } .ticket { position:static; padding-left:20px; padding-right:20px; } .ticket h2 { font-size:18px; } .ticket .orderField input { font-size:16px; } .athleteList { grid-template-columns:1fr 1fr; max-height:320px; gap:0 8px; } .athleteRow { padding:12px 5px; gap:7px; } .athletePrice { font-size:11px; } .athleteRow .avatar { display:none; } .activity { margin-top:28px; } .activityTabs { gap:18px; } .activityTabs button { font-size:12px; gap:5px; } .allocation { flex-wrap:wrap; } .fundingForms,.ledgerList { grid-template-columns:1fr; } .table { font-size:12px; } }
 @media(max-width:380px) { .summary { gap:18px; } .summaryLink { margin-left:0; } .topline { flex-wrap:wrap; } .athleteList { grid-template-columns:1fr; } .athleteRow .avatar { display:grid; } .activityTabs { gap:14px; } .chartLabel { font-size:10px; } }
+@media(max-width:999px) { .mobilePicker { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 24px; padding:12px 0; border-bottom:1px solid var(--border); } .mobilePicker label { color:var(--muted); font-size:12px; flex-shrink:0; } .mobilePicker select { min-width:0; max-width:330px; background:#fafcfb; border:1px solid var(--border); font-size:14px; } }
+@media(max-width:650px) { .mobilePicker { flex-direction:column; align-items:stretch; gap:8px; padding-top:0; } .mobilePicker select { max-width:none; font-size:16px; } .ticketTools button,.ticketTools a { min-height:44px; font-size:12px; } }

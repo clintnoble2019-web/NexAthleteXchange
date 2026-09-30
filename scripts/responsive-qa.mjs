@@ -38,6 +38,23 @@ try {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (overflow) throw new Error("Page overflow at " + width + "px on " + route);
       await page.screenshot({ path: "qa-output/" + route.split("?")[0].replaceAll("/", "_") + "-" + width + ".png", fullPage: true });
+      if (route === testRoute) {
+        const orderCount = await prisma.scoutOrder.count();
+        await page.getByRole("tab", { name: "Sell", exact: true }).click();
+        if (await page.locator('input[name="side"]').getAttribute("value") !== "SELL") throw new Error("Sell tab did not update the order side.");
+        await page.getByRole("tab", { name: "Buy", exact: true }).click();
+        await page.getByRole("button", { name: "Review order", exact: true }).click();
+        await page.getByRole("button", { name: "Place limit buy", exact: true }).waitFor({ state: "visible" });
+        if (await prisma.scoutOrder.count() !== orderCount) throw new Error("Reviewing an order submitted it before confirmation.");
+        if (await page.getByLabel("Limit price", { exact: true }).getAttribute("readonly") === null) throw new Error("Reviewed limit price is still editable.");
+        if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) throw new Error("Order review overflowed at " + width);
+        await page.screenshot({ path: "qa-output/customer-order-review-" + width + ".png", fullPage: true });
+        await page.getByRole("button", { name: "Edit order", exact: true }).click();
+        await page.getByRole("button", { name: "Review order", exact: true }).waitFor({ state: "visible" });
+        await page.getByRole("button", { name: "ALL", exact: true }).click();
+        if (await page.getByRole("button", { name: "ALL", exact: true }).getAttribute("aria-pressed") !== "true") throw new Error("Chart range did not update.");
+        if (width < 1000 && !(await page.getByLabel("Trade an athlete", { exact: true }).isVisible())) throw new Error("Mobile athlete picker is unavailable.");
+      }
     }
   }
   console.log("Desktop/mobile responsive QA: PASS");

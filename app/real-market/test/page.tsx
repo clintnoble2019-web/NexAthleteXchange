@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { realMarketCustomerTestEnabled } from "@/lib/real-market";
 import { ensureScoutWallet, visibleScoutOrders } from "@/lib/scout-market";
 import { formatRealMoney as money } from "@/lib/real-market-sandbox";
-import { ActivityTabs, AthleteList, OrderTicket, ReferenceChart } from "./TradingWorkspace";
+import { ActivityTabs, AthleteList, MobileAthletePicker, OrderTicket, ReferenceChart } from "./TradingWorkspace";
 import styles from "./workspace.module.css";
 
 export const metadata = { title: "Test Market | NexAthleteXchange", robots: { index: false, follow: false } };
@@ -43,7 +43,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
   const availableShares = position ? Number(position.quantity.sub(position.reservedQuantity)) : 0;
   const open = !!(selected?.status === "ACTIVE" && selected.athlete.active && selected.athlete.marketEnabled && !control?.sandboxPaused);
   const price = Number(selected?.athlete.currentPrice || 0), previous = Number(selected?.athlete.previousPrice || 0);
-  const change = price - previous, percent = previous > 0 ? change / previous * 100 : 0;
+  const athleteChoices = instruments.map(i => ({ id:i.athleteId, name:i.athlete.name, sport:i.athlete.sport, team:i.athlete.team, price:Number(i.athlete.currentPrice), previous:Number(i.athlete.previousPrice) }));
   const chartPoints = [...history].reverse().map(p => ({ time: p.createdAt.toISOString(), price: Number(p.price) }));
   if (selected && (!chartPoints.length || selected.athlete.updatedAt.getTime() > new Date(chartPoints[chartPoints.length - 1].time).getTime())) chartPoints.push({ time: selected.athlete.updatedAt.toISOString(), price });
   const book = (title: string, levels: typeof bids, sell = false) => {
@@ -58,18 +58,18 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
     <header className={styles.topline}><div><span className={styles.eyebrow}>Your trading workspace</span><h1>Real Market</h1></div><span className={styles.testPill}>Test account · Fake money</span></header>
     {params.notice && <div role="status" className={styles.notice}>{params.notice}</div>}{params.error && <div role="alert" className={`${styles.notice} ${styles.error}`}>{params.error}</div>}
     <section className={styles.summary} aria-label="Account overview"><div className={styles.summaryMetric}><span>Test portfolio value</span><strong>{money(Number(account.balance) + referenceValue)}</strong><small>Test cash + reference holdings value</small></div><div className={styles.summaryMetric}><span>Buying power</span><strong>{money(availableCash)}</strong></div><div className={styles.summaryMetric}><span>Cash held</span><strong>{money(account.reservedCash)}</strong></div><div className={styles.summaryMetric}><span>Holdings reference</span><strong>{money(referenceValue)}</strong></div><a className={styles.summaryLink} href="#test-funding">Manage test cash</a></section>
+    <MobileAthletePicker selected={athleteId} athletes={athleteChoices}/>
     <div className={styles.workspace}>
       <section className={styles.asset} aria-label="Selected athlete">{selected ? <>
         <header className={styles.assetHeader}><div><h2 className={styles.assetName}>{selected.athlete.name}</h2><p className={styles.assetMeta}>{selected.athlete.sport} · {selected.athlete.team} · {selected.athlete.position}</p></div><span className={`${styles.marketState} ${!open ? styles.paused : ""}`}>{open ? "Market open" : "Orders paused"}</span></header>
-        <div className={styles.assetPrice}>{money(price)}</div><div className={`${styles.assetChange} ${change < 0 ? styles.negative : styles.positive}`}><span>{change >= 0 ? "+" : ""}{money(change)} ({change >= 0 ? "+" : ""}{percent.toFixed(2)}%)</span><small>vs. previous reference</small></div>
-        <ReferenceChart key={selected.athleteId} name={selected.athlete.name} points={chartPoints}/>
+        <ReferenceChart key={selected.athleteId} name={selected.athlete.name} points={chartPoints} currentPrice={price} previousPrice={previous}/>
         <section className={styles.orderBook}><div className={styles.orderBookHeader}><h2>Order book</h2><Link className={styles.refresh} href={`/real-market/test?athlete=${encodeURIComponent(selected.athleteId)}`}>Refresh</Link></div><div className={styles.depthColumns}>{book("Buy bids", bids)}{book("Sell asks", asks, true)}</div><p className={styles.caption}>Funded customer orders · Top 10 price levels · Best price, then arrival time</p></section>
         <div className={styles.allocation}><div><h3>Practice with test shares</h3><p>One-time allocation of 10 simulated shares per athlete.</p></div>{grant ? <span>Allocation claimed</span> : <form action={action} method="post"><input type="hidden" name="action" value="GRANT"/><input type="hidden" name="athleteId" value={selected.athleteId}/><button disabled={!open}>Claim 10 test shares</button></form>}</div>
       </> : <p className={styles.empty}>The test market is being prepared. Check back shortly.</p>}</section>
-      {selected && <OrderTicket key={selected.athleteId} athleteId={selected.athleteId} name={selected.athlete.name} price={price} availableCash={availableCash} availableShares={availableShares} open={open} buyKey={randomUUID()} sellKey={randomUUID()}/>}
-      <AthleteList selected={athleteId} athletes={instruments.map(i => ({ id:i.athleteId, name:i.athlete.name, sport:i.athlete.sport, team:i.athlete.team, price:Number(i.athlete.currentPrice), previous:Number(i.athlete.previousPrice) }))}/>
+      {selected && <OrderTicket key={selected.athleteId} athleteId={selected.athleteId} name={selected.athlete.name} price={price} availableCash={availableCash} availableShares={availableShares} bestBid={bids.length ? Number(bids[0].price) : null} bestAsk={asks.length ? Number(asks[0].price) : null} open={open} buyKey={randomUUID()} sellKey={randomUUID()}/>}
+      <AthleteList selected={athleteId} athletes={athleteChoices}/>
     </div>
-    <ActivityTabs panels={[{ label:"Positions", count:positions.length, content:positionsPanel },{ label:"Orders", count:orders.length, content:ordersPanel },{ label:"Fills", count:fills.length, content:fillsPanel },{ label:"Cash activity", count:entries.length, content:auditPanel }]}/>
+    <ActivityTabs initialActive={params.notice?.startsWith("Order ") ? 1 : 0} panels={[{ label:"Positions", count:positions.length, content:positionsPanel },{ label:"Orders", count:orders.length, content:ordersPanel },{ label:"Fills", count:fills.length, content:fillsPanel },{ label:"Cash activity", count:entries.length, content:auditPanel }]}/>
     <details className={styles.funding}><summary>Manage test cash</summary><div className={styles.fundingForms} id="test-funding">{cashForm("DEPOSIT")}{cashForm("WITHDRAWAL")}</div></details>
     <footer className={styles.footer}>This is a simulated customer market. Cash, shares, fees, and withdrawals have no real monetary value. Reference prices are research valuations, not guaranteed sale or redemption prices. Test balances are separate from Free Market. Real-money trading remains disabled.</footer>
   </main>;
