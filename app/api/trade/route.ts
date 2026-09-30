@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { TradeSide } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { executeTrade } from "@/lib/trading";
+import { publicRequestUrl } from "@/lib/public-url";
 
 function safeReturnTo(value: FormDataEntryValue | null) {
   const path = typeof value === "string" ? value : "";
@@ -10,14 +11,14 @@ function safeReturnTo(value: FormDataEntryValue | null) {
 }
 
 function redirectWithStatus(req: Request, returnTo: string, key: "trade" | "tradeError", value: string) {
-  const url = new URL(returnTo, req.url);
+  const url = publicRequestUrl(req, returnTo);
   url.searchParams.set(key, value);
   return NextResponse.redirect(url, 303);
 }
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.redirect(new URL("/login", req.url), 303);
+  if (!user) return NextResponse.redirect(publicRequestUrl(req, "/login?status=session-required"), 303);
 
   const form = await req.formData();
   const returnTo = safeReturnTo(form.get("returnTo"));
