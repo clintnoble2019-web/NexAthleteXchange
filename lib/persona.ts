@@ -125,12 +125,23 @@ function inquirySignals(inquiry: Record<string, any>) {
   const attrs = inquiry?.data?.attributes || {};
   const relationships = inquiry?.data?.relationships || {};
   const accountId = relationships?.account?.data?.id ? String(relationships.account.data.id) : "";
-  const country = String(attrs["country-code"] || attrs.countryCode || "").toUpperCase();
-  const region = String(attrs["region-code"] || attrs.regionCode || "").toUpperCase();
-  const vpn = attrs["is-vpn"] === true || attrs.isVpn === true;
-  const proxy = attrs["is-proxy"] === true || attrs.isProxy === true;
-  const tor = attrs["is-tor"] === true || attrs.isTor === true;
-  return { attrs, accountId, country, region, vpn, proxy, tor };
+  const sessions = Array.isArray(inquiry?.included)
+    ? inquiry.included.filter((item: Record<string, any>) => item?.type === "inquiry-session")
+    : [];
+  const latestSession = sessions.sort((a: Record<string, any>, b: Record<string, any>) => {
+    const at = Date.parse(String(a?.attributes?.["created-at"] || "")) || 0;
+    const bt = Date.parse(String(b?.attributes?.["created-at"] || "")) || 0;
+    return bt - at;
+  })[0];
+  const session = latestSession?.attributes || {};
+  const country = String(session["gps-country-code"] || session["country-code"] || "").toUpperCase();
+  const region = String(session["region-code"] || "").toUpperCase();
+  const vpn = session["is-vpn"] === true;
+  const proxy = session["is-proxy"] === true;
+  const tor = session["is-tor"] === true;
+  const datacenter = session["is-datacenter"] === true;
+  const threatLevel = String(session["threat-level"] || "").toLowerCase();
+  return { attrs, accountId, country, region, vpn, proxy, tor, datacenter, threatLevel, hasSession: Boolean(latestSession) };
 }
 
 export async function processPersonaWebhook(rawBody: string, signatureHeader: string | null) {
@@ -156,10 +167,10 @@ export async function processPersonaWebhook(rawBody: string, signatureHeader: st
   const enrollment = await prisma.realEnrollment.findUnique({ where: { userId } });
   if (!enrollment || enrollment.providerRef !== `persona:${inquiryId}`) throw new Error("Persona inquiry does not match the enrolled account.");
   const signals = inquirySignals(inquiry);
-  const providerApproved = eventName === "inquiry.approved";
-  const providerDeclined = eventName === "inquiry.declined";
+  const providerApproved = eventName === "inquiry.approved" && String(attrs.status || "").toLowerCase() === "approved";
+  const providerDeclined = eventName === "inquiry.declined" || String(attrs.status || "").toLowerCase() === "declined";
   const locationBlocked = Boolean(signals.country && !allowedLocation(signals.country, signals.region));
-  const networkRisk = signals.vpn || signals.proxy || signals.tor;
+  const networkRisk = signals.vpn || signals.proxy || signals.tor || signals.datacenter || ["high", "very_high", "very-high"].includes(signals.threatLevel);
   let nextStatus = providerApproved ? "VERIFIED" : providerDeclined ? "REJECTED" : "REVIEW";
   if (providerApproved && (!signals.accountId || locationBlocked || networkRisk)) nextStatus = "REVIEW";
   const identityHash = signals.accountId ? hash(`persona-account:${signals.accountId}`) : null;
@@ -192,6 +203,8 @@ export async function processPersonaWebhook(rawBody: string, signatureHeader: st
             region: signals.region || null,
             locationBlocked,
             networkRisk,
+            sessionSignalsPresent: signals.hasSession,
+            threatLevel: signals.threatLevel || null,
             providerStatus: String(attrs.status || ""),
             tagCount: Array.isArray(attrs.tags) ? attrs.tags.length : 0,
           },
