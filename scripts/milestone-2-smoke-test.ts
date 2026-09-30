@@ -30,7 +30,7 @@ async function main() {
     const discoverHtml = await discover.text();
     assert(discoverHtml.includes("Trending"), "Discover page is missing Trending");
     assert(discoverHtml.includes("Value watch"), "Discover page is missing Value watch");
-    assert(discoverHtml.includes(athletes[0].name), "Discover page does not render seeded athletes");
+    assert(athletes.some((athlete) => discoverHtml.includes(`/athletes/${athlete.slug}`)), "Discover page does not render any seeded athlete links");
 
     const market = await get("/market");
     assert(market.status === 200, `Market expected 200, got ${market.status}`);
