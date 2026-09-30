@@ -58,7 +58,7 @@ export default async function Discover({ searchParams }: { searchParams: Promise
       <div className="card scoutCard"><div><span className="eyebrow">MOMENTUM</span><h2>🔥 Trending risers</h2><p className="muted">Players moving up on the latest market update.</p></div>{rows(risers)}</div>
       <div className="card scoutCard"><div><span className="eyebrow">PULLBACKS</span><h2>📉 Biggest fallers</h2><p className="muted">Potential buy-low spots or players losing momentum.</p></div>{rows(fallers)}</div>
       <div className="card scoutCard"><div><span className="eyebrow">UNDER N⟡12</span><h2>🎯 Value watch — breakout board</h2><p className="muted">Low-priced athletes showing the strongest recent movement.</p></div>{rows(breakouts)}</div>
-      <div className="card scoutCard"><div><span className="eyebrow">SCOUTING VALUE</span><h2>🌱 Deep value</h2><p className="muted">Low-priced athletes with the strongest Lifetime Performance Value.</p></div>{rows(deepValue)}</div>
+      <div className="card scoutCard"><div><span className="eyebrow">SCOUTING VALUE</span><h2>🌱 Market Cap leaders — deep value</h2><p className="muted">Low-priced athletes with the strongest Lifetime Performance Value.</p></div>{rows(deepValue)}</div>
     </section>
   </main>;
 }
