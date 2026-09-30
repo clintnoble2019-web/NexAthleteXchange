@@ -3,6 +3,7 @@ import { LiquidityQuoteSide } from "@prisma/client";
 import { realMarketSandboxPreviewEnabled } from "@/lib/real-market";
 import {
   authenticateSandboxLiquidityProvider,
+  cancelAllSandboxProviderQuotes,
   cancelSandboxLiquidityQuote,
   submitSandboxLiquidityQuote,
 } from "@/lib/liquidity-provider-sandbox";
@@ -44,6 +45,10 @@ export async function DELETE(req: Request) {
   try {
     const provider = await authenticateSandboxLiquidityProvider(bearer(req), sourceIp(req));
     const body = await req.json();
+    if (body.all === true) {
+      await cancelAllSandboxProviderQuotes(provider.id);
+      return NextResponse.json({ ok: true, cancelled: "all" });
+    }
     await cancelSandboxLiquidityQuote(provider.id, String(body.instrumentId || ""), side(body.side));
     return NextResponse.json({ ok: true });
   } catch (error) {
