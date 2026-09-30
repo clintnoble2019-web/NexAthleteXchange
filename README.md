@@ -31,3 +31,11 @@ Open `http://localhost:3000/signup`.
 ## Architecture principle
 
 The Free Market uses the same core athlete, portfolio, trade and ledger concepts intended to survive into later phases. Real-money operation is not enabled by this code and would require a separately approved compliance, custody, funding and settlement architecture.
+
+## Milestone 2
+
+- Athlete detail pages
+- Price history
+- Discovery screen (Trending + Value Watch)
+- Configurable performance-led pricing module
+- Price snapshot model ready for scheduled repricing

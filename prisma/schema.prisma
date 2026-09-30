@@ -72,6 +72,7 @@ model Athlete {
   updatedAt      DateTime  @updatedAt
   positions      Position[]
   trades         Trade[]
+  priceHistory   PriceSnapshot[]
   @@index([sport, active])
 }
 
@@ -113,4 +114,14 @@ model LedgerEntry {
   createdAt DateTime   @default(now())
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
+}
+
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  athleteId String
+  price     Decimal  @db.Decimal(18, 4)
+  source    String   @default("pricing-engine")
+  createdAt DateTime @default(now())
+  athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  @@index([athleteId, createdAt])
 }
