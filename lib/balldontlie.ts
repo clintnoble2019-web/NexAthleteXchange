@@ -30,6 +30,7 @@ export type BdlMlbSeasonStat = {
 export type BdlLivePlayerStat = {
   playerId: number;
   gameId: number;
+  gameDate?: string;
   statusState: string;
   stats: Record<string, unknown>;
 };
@@ -187,6 +188,7 @@ export async function getBdlNbaLiveStats(dates: string[]): Promise<BdlLivePlayer
     return [{
       playerId,
       gameId,
+      gameDate: row.game?.date ? String(row.game.date).slice(0, 10) : undefined,
       statusState,
       stats: {
         ...row,
@@ -208,7 +210,13 @@ export async function getBdlMlbLiveStats(dates: string[]): Promise<BdlLivePlayer
     const state = String(game.status_state ?? "unknown").toLowerCase();
     return state === "in_progress" || state === "final";
   });
-  const statusByGame = new Map<number, string>(eligibleGames.map((game) => [Number(game.id), String(game.status_state ?? "unknown").toLowerCase()]));
+  const gameMeta = new Map<number, { statusState: string; gameDate?: string }>(eligibleGames.map((game) => [
+    Number(game.id),
+    {
+      statusState: String(game.status_state ?? "unknown").toLowerCase(),
+      gameDate: game.date ? String(game.date).slice(0, 10) : undefined,
+    }
+  ]));
   const gameIds = eligibleGames.map((game) => Number(game.id)).filter(Number.isFinite);
   if (gameIds.length === 0) return [];
 
@@ -228,10 +236,12 @@ export async function getBdlMlbLiveStats(dates: string[]): Promise<BdlLivePlayer
     const playerId = Number(row.player?.id ?? row.player_id);
     const gameId = Number(row.game?.id ?? row.game_id);
     if (!Number.isFinite(playerId) || !Number.isFinite(gameId)) return [];
+    const meta = gameMeta.get(gameId);
     return [{
       playerId,
       gameId,
-      statusState: statusByGame.get(gameId) ?? String(row.game?.status_state ?? row.status_state ?? "unknown").toLowerCase(),
+      gameDate: meta?.gameDate ?? (row.game?.date ? String(row.game.date).slice(0, 10) : undefined),
+      statusState: meta?.statusState ?? String(row.game?.status_state ?? row.status_state ?? "unknown").toLowerCase(),
       stats: row as Record<string, unknown>,
     }];
   });
