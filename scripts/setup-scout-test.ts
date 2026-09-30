@@ -68,6 +68,21 @@ async function ensureSystemPosition(userId: string, athleteId: string, quantity:
   return prisma.scoutPosition.create({ data: { userId, athleteId, quantity } });
 }
 
+async function ensureFixtureOrder(input: {
+  userId: string;
+  athleteId: string;
+  side: "BUY" | "SELL";
+  price: string;
+  quantity: string;
+  requestKey: string;
+}) {
+  const existing = await prisma.scoutOrder.findUnique({
+    where: { userId_requestKey: { userId: input.userId, requestKey: input.requestKey } },
+  });
+  if (existing) return existing;
+  return placeScoutOrder(input);
+}
+
 async function refreshHouseBook(
   houseUserId: string,
   athleteId: string,
@@ -207,7 +222,7 @@ async function main() {
 
   const [, buyer, seller] = accounts;
   const openingPrice = Number(openingInstrument.athlete.currentPrice).toFixed(2);
-  await placeScoutOrder({
+  await ensureFixtureOrder({
     userId: seller.id,
     athleteId: openingInstrument.athleteId,
     side: "SELL",
@@ -215,7 +230,7 @@ async function main() {
     quantity: "3",
     requestKey: "setup-seller-order-v1",
   });
-  await placeScoutOrder({
+  await ensureFixtureOrder({
     userId: buyer.id,
     athleteId: openingInstrument.athleteId,
     side: "BUY",
@@ -223,7 +238,7 @@ async function main() {
     quantity: "1",
     requestKey: "setup-buyer-order-v1",
   });
-  await placeScoutOrder({
+  await ensureFixtureOrder({
     userId: buyer.id,
     athleteId: openingInstrument.athleteId,
     side: "BUY",
