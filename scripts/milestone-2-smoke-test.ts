@@ -20,6 +20,7 @@ async function main() {
       const marketHtml = await market.text();
       assert(marketHtml.includes(String(sport)) && marketHtml.includes("Athlete Market"), `${sport} market heading missing`);
       assert(marketHtml.includes("Browse by team"), `${sport} teams strip missing`);
+      assert(marketHtml.includes("Market Cap"), `${sport} market missing Market Cap`);
       for (const athlete of athletes) assert(marketHtml.includes(`/athletes/${athlete.slug}`), `Market missing ${athlete.name}`);
 
       const discover = await get(`/discover?sport=${sport}`);
@@ -34,7 +35,8 @@ async function main() {
         const html = await page.text();
         assert(html.includes(athlete.name), `${athlete.name} page missing name`);
         assert(html.includes("Price history"), `${athlete.name} page missing price history`);
-        assert(html.includes("NexGame analysis"), `${athlete.name} page missing analysis`);
+        assert(html.includes("Market Cap"), `${athlete.name} page missing Market Cap`);
+        assert(html.includes("Lifetime Performance Value"), `${athlete.name} page missing Lifetime Performance Value`);
         assert(html.includes("N⟡"), `${athlete.name} page is not using NexPoints symbol`);
       }
     }
