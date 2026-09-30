@@ -58,7 +58,10 @@ try {
         if (await page.getByRole("button", { name: "ALL", exact: true }).getAttribute("aria-pressed") !== "true") throw new Error("Chart range did not update.");
         if (width < 1000 && !(await page.getByLabel("Trade an athlete collectible", { exact: true }).isVisible())) throw new Error("Mobile athlete collectible picker is unavailable.");
       }
-      if (route === fundingRoute && !(await page.getByText("USDC funding", { exact: true }).isVisible())) throw new Error("Provider funding console is unavailable.");
+      if (route === fundingRoute) {
+        if (!(await page.getByText("Complete provider KYC", { exact: true }).isVisible())) throw new Error("Provider funding did not enforce Persona KYC first.");
+        if (!page.url().includes("/real-market/verify")) throw new Error("Unverified provider funding did not redirect to the KYC gate.");
+      }
     }
   }
   console.log("Desktop/mobile responsive QA: PASS");
