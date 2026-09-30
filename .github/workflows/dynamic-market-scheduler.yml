@@ -1,6 +1,11 @@
 name: Dynamic Market Scheduler
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/dynamic-market-scheduler.yml
   schedule:
     - cron: "*/5 * * * *"
     - cron: "17 10 * * *"
