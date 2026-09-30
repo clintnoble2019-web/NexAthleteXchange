@@ -17,6 +17,7 @@ type MarketSearchParams = {
   perPage?: Param;
   trade?: Param;
   tradeError?: Param;
+  auth?: Param;
 };
 
 type SortKey = "market_cap" | "price_desc" | "price_asc" | "name";
@@ -57,6 +58,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
   const requestedPage = positiveInt(first(params.page), 1);
   const trade = first(params.trade);
   const tradeError = first(params.tradeError);
+  const auth = first(params.auth);
 
   const where: Prisma.AthleteWhereInput = {
     sport,
@@ -135,6 +137,8 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
       <div className="heroActions"><AutoRefresh/>{user ? <div><span className="muted">NexPoints balance</span><h2>{formatNexPoints(Number(user.wallet?.balance || 0))}</h2></div> : <Link className="button" href="/signup">Start with {NEXPOINTS_SYMBOL}5,000</Link>}</div>
     </div>
 
+    {auth === "signup" && <div className="notice successNotice">Welcome to NexAthleteXchange! Your {NEXPOINTS_SYMBOL}5,000 scouting bankroll is ready. Find your first breakout and start building your portfolio.</div>}
+    {auth === "login" && <div className="notice successNotice">Welcome back. You’re signed in and ready to scout the market.</div>}
     {trade && <div className="notice successNotice">{trade === "SELL" ? "Sale completed." : "Purchase completed."} Your NexPoints balance and portfolio have been updated.</div>}
     {tradeError && <div className="notice errorNotice">{tradeError}</div>}
 
