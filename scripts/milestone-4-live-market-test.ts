@@ -53,63 +53,67 @@ async function main() {
     const buy = await postForm("/api/trade", {
       athleteId: athlete.id,
       side: "BUY",
-      quantity: "2",
+      quantity: "2.5",
       returnTo: `/athletes/${slug}`,
     }, cookie);
-    assert(buy.status === 303, `Buy expected 303, got ${buy.status}`);
+    assert(buy.status === 303, `Fractional buy expected 303, got ${buy.status}`);
     assert((buy.headers.get("location") || "").includes("trade=BUY"), "Buy redirect did not include success feedback");
 
     const athleteAfterBuy = await fetch(`${baseUrl}/athletes/${slug}?trade=BUY`, { headers: { cookie } });
     const athleteHtml = await athleteAfterBuy.text();
     assert(athleteAfterBuy.status === 200, "Athlete page failed after purchase");
-    assert(athleteHtml.includes("You own"), "Athlete page did not show owned units");
-    assert(athleteHtml.includes("2.0000"), "Athlete page did not show the purchased quantity");
+    assert(athleteHtml.includes("You own"), "Athlete page did not show owned shares");
+    assert(athleteHtml.includes("2.5000"), "Athlete page did not show fractional purchased shares");
+    assert(athleteHtml.includes("Fractional trading from 0.01 shares"), "Athlete page did not expose fractional-share controls");
+    assert(athleteHtml.includes("The chart changes only when the NexGame market engine actually reprices the athlete."), "Price-history behavior was not explained");
 
     await prisma.athlete.update({ where: { id: athlete.id }, data: { previousPrice: 10, currentPrice: 12 } });
 
     const sell = await postForm("/api/trade", {
       athleteId: athlete.id,
       side: "SELL",
-      quantity: "1",
+      quantity: "0.75",
       returnTo: "/portfolio",
     }, cookie);
-    assert(sell.status === 303, `Sell expected 303, got ${sell.status}`);
+    assert(sell.status === 303, `Fractional sell expected 303, got ${sell.status}`);
     assert((sell.headers.get("location") || "").includes("trade=SELL"), "Sell redirect did not include success feedback");
 
+    const qaUser = await prisma.user.findUniqueOrThrow({ where: { email } });
     const [user, position, sellTrade] = await Promise.all([
       prisma.user.findUnique({ where: { email }, include: { wallet: true } }),
-      prisma.position.findUnique({ where: { userId_athleteId: { userId: (await prisma.user.findUniqueOrThrow({ where: { email } })).id, athleteId: athlete.id } } }),
+      prisma.position.findUnique({ where: { userId_athleteId: { userId: qaUser.id, athleteId: athlete.id } } }),
       prisma.trade.findFirst({ where: { athleteId: athlete.id, side: TradeSide.SELL }, orderBy: { createdAt: "desc" } }),
     ]);
 
     assert(user?.wallet, "M4 QA wallet missing");
-    assert(Number(user.wallet.balance) === 4992, `Expected wallet N⟡4,992.00, got ${user.wallet.balance}`);
-    assert(position, "Remaining position missing after partial sell");
-    assert(Number(position.quantity) === 1, `Expected 1 remaining unit, got ${position.quantity}`);
+    assert(Number(user.wallet.balance) === 4984, `Expected wallet N⟡4,984.00, got ${user.wallet.balance}`);
+    assert(position, "Remaining position missing after fractional sell");
+    assert(Number(position.quantity) === 1.75, `Expected 1.75 remaining shares, got ${position.quantity}`);
     assert(Number(position.averageCost) === 10, `Average cost changed after sell: ${position.averageCost}`);
     assert(sellTrade, "Sell trade missing");
-    assert(Number(sellTrade.realizedPnl) === 2, `Expected realized P/L N⟡2.00, got ${sellTrade.realizedPnl}`);
+    assert(Number(sellTrade.realizedPnl) === 1.5, `Expected realized P/L N⟡1.50, got ${sellTrade.realizedPnl}`);
 
     const portfolio = await fetch(`${baseUrl}/portfolio?trade=SELL`, { headers: { cookie } });
     const portfolioHtml = await portfolio.text();
     assert(portfolio.status === 200, "Portfolio failed after sell");
     assert(portfolioHtml.includes("Recent trades"), "Portfolio recent trade history missing");
+    assert(portfolioHtml.includes("Shares"), "Portfolio did not use share terminology");
     assert(portfolioHtml.includes("Realized"), "Portfolio realized P/L summary missing");
-    assert(portfolioHtml.includes("N⟡5,004.00"), "Portfolio value did not include realized and unrealized gains");
-    assert(portfolioHtml.includes("+N⟡4.00"), "Total P/L was not N⟡+4.00");
+    assert(portfolioHtml.includes("N⟡5,005.00"), "Portfolio value did not include fractional realized and unrealized gains");
+    assert(portfolioHtml.includes("+N⟡5.00"), "Total P/L was not N⟡+5.00");
 
     const disabled = await prisma.athlete.update({ where: { id: athlete.id }, data: { marketEnabled: false } });
     assert(disabled.marketEnabled === false, "Failed to disable test athlete");
     const blocked = await postForm("/api/trade", {
       athleteId: athlete.id,
       side: "BUY",
-      quantity: "1",
+      quantity: "0.25",
       returnTo: "/portfolio",
     }, cookie);
     assert(blocked.status === 303, "Disabled-athlete trade did not redirect safely");
     assert((blocked.headers.get("location") || "").includes("tradeError="), "Disabled-athlete trade did not surface an error");
 
-    console.log("Milestone 4 live market + trading test: PASS");
+    console.log("Milestone 4 live market + fractional-share trading test: PASS");
   } finally {
     await prisma.trade.deleteMany({ where: { athleteId: athlete.id } });
     await prisma.position.deleteMany({ where: { athleteId: athlete.id } });
