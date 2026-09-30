@@ -51,13 +51,33 @@ model Session {
 model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Decimal  @default(100000) @db.Decimal(18, 2)
+  balance   Decimal  @default(5000) @db.Decimal(18, 2)
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Team {
+  id           String   @id @default(cuid())
+  providerKey  String?  @unique
+  dataProvider String   @default("seed")
+  sport        Sport
+  league       String
+  name         String
+  abbreviation String
+  city         String?
+  conference   String?
+  division     String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([sport, abbreviation])
+  @@index([sport, active])
+}
+
 model Athlete {
   id             String          @id @default(cuid())
+  providerKey    String?         @unique
+  dataProvider   String          @default("seed")
   name           String
   slug           String          @unique
   sport          Sport
@@ -68,12 +88,13 @@ model Athlete {
   previousPrice  Decimal         @db.Decimal(18, 2)
   performance    Int             @default(50)
   active         Boolean         @default(true)
+  marketEnabled  Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   positions      Position[]
   trades         Trade[]
   priceHistory   PriceSnapshot[]
-  @@index([sport, active])
+  @@index([sport, active, marketEnabled])
 }
 
 model Position {

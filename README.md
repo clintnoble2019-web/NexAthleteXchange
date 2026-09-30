@@ -1,10 +1,12 @@
 # NexAthleteXchange
 
-NexAthleteXchange is a sports-first athlete trading platform. Year 1 focuses on MLB, NFL and NBA. Soccer is planned for Year 2.
+NexAthleteXchange is a sports-first athlete trading platform. **Launch sports are NBA and MLB.**
 
-## Milestone 1
+## Current Free Market
 
-Create account → receive $100,000 virtual cash → browse seeded MLB athletes → buy/sell units → portfolio and cash update → every movement is recorded in the transaction ledger.
+Create account → receive **N⟡5,000 NexPoints** → browse NBA/MLB teams and athletes → buy/sell units → portfolio and NexPoints balance update → every movement is recorded in the ledger.
+
+NexPoints are virtual points with no real-money value.
 
 ## Stack
 
@@ -12,7 +14,7 @@ Create account → receive $100,000 virtual cash → browse seeded MLB athletes 
 - PostgreSQL
 - Prisma
 - Server-side cookie sessions
-- Clean custom CSS UI foundation
+- BALLDONTLIE-ready NBA + MLB roster sync
 
 ## Run locally
 
@@ -21,21 +23,35 @@ cp .env.example .env
 docker compose up -d
 npm install
 npm run db:generate
-npm run db:migrate -- --name init
+npx prisma db push
 npm run db:seed
 npm run dev
 ```
 
 Open `http://localhost:3000/signup`.
 
-## Architecture principle
+## BALLDONTLIE roster sync
 
-The Free Market uses the same core athlete, portfolio, trade and ledger concepts intended to survive into later phases. Real-money operation is not enabled by this code and would require a separately approved compliance, custody, funding and settlement architecture.
+Put your BALLDONTLIE All Access key in your local `.env` only:
+
+```env
+BALLDONTLIE_API_KEY="your-key-here"
+```
+
+Then run:
+
+```bash
+npm run sync:rosters
+```
+
+The sync pulls NBA and MLB teams plus all active players. Existing market players keep their pricing. Newly imported roster players are stored with `marketEnabled=false` until the pricing engine initializes them, so roster ingestion cannot accidentally publish placeholder prices.
 
 ## Milestone 2
 
+- NBA + MLB launch tabs
+- Team strip at the top of the market
 - Athlete detail pages
 - Price history
-- Discovery screen (Trending + Value Watch)
-- Configurable performance-led pricing module
-- Price snapshot model ready for scheduled repricing
+- Discovery screen
+- Configurable pricing module
+- BALLDONTLIE roster-ingestion foundation
