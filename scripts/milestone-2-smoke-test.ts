@@ -27,7 +27,7 @@ async function main() {
       assert(discover.status === 200, `${sport} Discover expected 200`);
       const discoverHtml = await discover.text();
       assert(discoverHtml.includes("Trending"), `${sport} Discover missing Trending`);
-      assert(discoverHtml.includes("Value watch"), `${sport} Discover missing Value watch`);
+      assert(discoverHtml.includes("Market Cap leaders"), `${sport} Discover missing Market Cap leaders`);
 
       for (const athlete of athletes) {
         const page = await get(`/athletes/${athlete.slug}`);
