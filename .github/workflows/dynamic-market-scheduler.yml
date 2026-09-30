@@ -1,0 +1,86 @@
+name: Dynamic Market Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+    - cron: "17 10 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Market update mode
+        required: true
+        default: live
+        type: choice
+        options:
+          - live
+          - baseline
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexathlete-dynamic-market
+  cancel-in-progress: false
+
+jobs:
+  update-market:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+
+    steps:
+      - name: Check required secrets
+        id: secrets
+        shell: bash
+        run: |
+          if [ -n "$DATABASE_URL" ] && [ -n "$BALLDONTLIE_API_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "DATABASE_URL and BALLDONTLIE_API_KEY repository secrets are required before automatic pricing can run."
+          fi
+
+      - name: Checkout market engine
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: milestone-4-live-repricing
+
+      - name: Setup Node
+        if: steps.secrets.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.secrets.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Generate Prisma client
+        if: steps.secrets.outputs.ready == 'true'
+        run: npm run db:generate
+
+      - name: Choose update mode
+        if: steps.secrets.outputs.ready == 'true'
+        id: mode
+        shell: bash
+        run: |
+          MODE="live"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ inputs.mode }}"
+          elif [ "${{ github.event.schedule }}" = "17 10 * * *" ]; then
+            MODE="baseline"
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Running $MODE market update"
+
+      - name: Update live game prices
+        if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'live'
+        run: npm run update:live
+
+      - name: Refresh daily season baseline
+        if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'baseline'
+        run: npm run update:market
