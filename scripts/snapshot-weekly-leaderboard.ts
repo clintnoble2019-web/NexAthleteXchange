@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { snapshotWeeklyBaselines } from "../lib/competition";
-
-const prisma = new PrismaClient();
 
 async function main() {
   const result = await snapshotWeeklyBaselines();
