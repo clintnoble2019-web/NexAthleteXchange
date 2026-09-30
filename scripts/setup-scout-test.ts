@@ -3,6 +3,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "../lib/prisma";
 import { syncSandboxRealMarketUniverse } from "../lib/liquidity-provider-sandbox";
 import {
+  REAL_MARKET_TERMS_ACTION,
+  REAL_MARKET_TERMS_HASH,
+  REAL_MARKET_TERMS_VERSION,
+} from "../lib/real-market-compliance";
+import {
   cancelScoutOrdersTx,
   claimScoutTestInventory,
   placeScoutOrder,
@@ -20,6 +25,42 @@ const SYSTEM_USERNAMES = Object.values(scoutSystemUsers);
 
 function systemIdentity(username: string) {
   return createHash("sha256").update(`nex-sandbox-system:${username}`).digest("hex");
+}
+
+async function ensureFixtureTerms(userId: string) {
+  if (process.env.SCOUT_TEST_DATABASE !== "1") throw new Error("Fixture Terms acceptance is limited to the isolated customer test database.");
+  const events = await prisma.adminAuditEvent.findMany({
+    where: { actorId: userId, targetId: userId, action: REAL_MARKET_TERMS_ACTION },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+  const current = events.some(event => {
+    const details = event.details as Record<string, unknown>;
+    return details?.termsVersion === REAL_MARKET_TERMS_VERSION && details?.termsHash === REAL_MARKET_TERMS_HASH;
+  });
+  if (current) return;
+  await prisma.adminAuditEvent.create({
+    data: {
+      actorId: userId,
+      targetId: userId,
+      action: REAL_MARKET_TERMS_ACTION,
+      reason: "Isolated browser-test fixture accepted the current Real Market Terms.",
+      details: {
+        termsVersion: REAL_MARKET_TERMS_VERSION,
+        termsHash: REAL_MARKET_TERMS_HASH,
+        acceptedAt: new Date().toISOString(),
+        country: "US",
+        region: "TEST",
+        ageConfirmed: true,
+        agreementConfirmed: true,
+        electronicConsent: true,
+        locationConfirmed: true,
+        riskConfirmed: true,
+        productModel: "LIMITED_SUPPLY_DIGITAL_ATHLETE_COLLECTIBLES",
+        fixtureOnly: true,
+      },
+    },
+  });
 }
 
 async function ensureSystemUser(username: string, initialCash = 0) {
@@ -158,7 +199,7 @@ async function main() {
   const systemIds = [...systemUsers.values()].map(user => user.id);
 
   // Seed the non-public supply buckets first. These positions are created once and then
-  // move only through actual sandbox fills, so repeated deploys never mint replacement shares.
+  // move only through actual sandbox fills, so repeated deploys never mint replacement units.
   for (const instrument of instruments) {
     const house = systemUsers.get(scoutHouseUsername(instrument.athlete.sport));
     const reserve = systemUsers.get(scoutSystemUsers.liquidityReserve);
@@ -191,14 +232,15 @@ async function main() {
         },
       },
     });
+    await ensureFixtureTerms(user.id);
     await transferScoutTestCash(user.id, "DEPOSIT", 1000, `setup-cash-v1-${user.id}`);
     // Legacy fixture inventory is retained for the dedicated seller test account only.
-    // It is counted inside the 20,000-share public float below rather than added on top.
+    // It is counted inside the 20,000-unit public float below rather than added on top.
     await claimScoutTestInventory(user.id, openingInstrument.athleteId);
     accounts.push(user);
   }
 
-  // Public float is the remainder of the 20,000-share customer allocation after any
+  // Public float is the remainder of the 20,000-unit customer allocation after any
   // pre-existing tester positions. This keeps the total supply exactly 100,000 per athlete.
   const publicUser = systemUsers.get(scoutSystemUsers.publicFloat);
   if (!publicUser) throw new Error("Sandbox public-float account is missing.");
@@ -214,7 +256,7 @@ async function main() {
       const alreadyDistributed = Number(outsideSystem._sum.quantity || 0);
       const publicRemainder = scoutSupply.publicFloatPerAthlete - alreadyDistributed;
       if (publicRemainder < 0) {
-        throw new Error(`${instrument.athlete.name} already has more than ${scoutSupply.publicFloatPerAthlete} customer shares.`);
+        throw new Error(`${instrument.athlete.name} already has more than ${scoutSupply.publicFloatPerAthlete} customer units.`);
       }
       await ensureSystemPosition(publicUser.id, instrument.athleteId, publicRemainder);
     }
@@ -265,9 +307,9 @@ async function main() {
     }
   }
 
-  console.log(`Customer test market ready with ${scoutSupply.totalPerAthlete.toLocaleString()} shares per athlete.`);
+  console.log(`Customer test market ready with ${scoutSupply.totalPerAthlete.toLocaleString()} units per athlete.`);
   console.log(`Supply: House ${scoutSupply.housePerAthlete.toLocaleString()}, public ${scoutSupply.publicFloatPerAthlete.toLocaleString()}, reserve ${scoutSupply.liquidityReservePerAthlete.toLocaleString()}, treasury ${scoutSupply.treasuryPerAthlete.toLocaleString()}.`);
-  console.log("NEX House bid/ask liquidity refreshed for every active NBA, NFL, and MLB sandbox instrument.");
+  console.log("NEX House bid/ask liquidity refreshed for every active NBA, NFL, and MLB sandbox collectible.");
   console.log("Opening athlete: " + openingInstrument.athlete.name);
 }
 

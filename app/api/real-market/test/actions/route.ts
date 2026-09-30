@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { RealFundingType, TradeSide } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
+import { hasAcceptedCurrentTerms } from "@/lib/real-market-compliance";
 import { realMarketCustomerTestEnabled } from "@/lib/real-market";
 import { publicRequestUrl } from "@/lib/public-url";
 import { publicError } from "@/lib/public-error";
@@ -11,6 +12,12 @@ export async function POST(req: Request) {
   if (!realMarketCustomerTestEnabled()) return NextResponse.json({ error: "Customer test market is unavailable." }, { status: 404 });
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to use the test market." }, { status: 401 });
+  if (!(await hasAcceptedCurrentTerms(user.id))) {
+    if (req.headers.get("accept")?.includes("application/json")) return NextResponse.json({ error: "Accept the current Terms before using Real Market." }, { status: 403 });
+    const url = publicRequestUrl(req, "/terms/accept");
+    url.searchParams.set("next", "/real-market/test");
+    return NextResponse.redirect(url, 303);
+  }
   if (!(await consumeRateLimit("scout-test-actions", user.id, 60))) return NextResponse.json({ error: "Please wait before submitting another request." }, { status: 429 });
   const form = await req.formData();
   const field = (key: string) => String(form.get(key) || "");
@@ -27,7 +34,7 @@ export async function POST(req: Request) {
     switch (field("action")) {
       case "ORDER": {
         const order = await placeScoutOrder({ userId: user.id, athleteId, side: field("side") as TradeSide, price: field("price"), quantity: field("quantity"), requestKey: field("requestKey") });
-        return reply(`Order ${order.status.toLowerCase()}. Unfilled quantity: ${Number(order.remaining).toFixed(2)}.`, false, { id: order.id, status: order.status });
+        return reply(`Order ${order.status.toLowerCase()}. Unfilled units: ${Number(order.remaining).toFixed(2)}.`, false, { id: order.id, status: order.status });
       }
       case "CANCEL": {
         const order = await cancelScoutOrder(user.id, field("orderId"));
@@ -38,7 +45,7 @@ export async function POST(req: Request) {
         return reply("Fake cash action recorded. No real money moved.", false, { id: transfer.id });
       }
       case "GRANT":
-        return reply("Free share grants are disabled. Buy shares from the sandbox market to build a position.", true);
+        return reply("Free unit grants are disabled. Buy collectible units from the sandbox market to build a position.", true);
       default:
         return reply("Choose a valid test action.", true);
     }

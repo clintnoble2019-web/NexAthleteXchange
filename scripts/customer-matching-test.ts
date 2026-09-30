@@ -6,6 +6,11 @@ import { placeScoutOrder, cancelScoutOrder, claimScoutTestInventory, transferSco
 import { beginSandboxCareerEndingRetirement } from "../lib/liquidity-provider-sandbox";
 import { applyAdminAction } from "../lib/admin";
 import { reviewSandboxIdentity } from "../lib/identity";
+import {
+  REAL_MARKET_TERMS_ACTION,
+  REAL_MARKET_TERMS_HASH,
+  REAL_MARKET_TERMS_VERSION,
+} from "../lib/real-market-compliance";
 
 const base = process.env.BASE_URL || "http://127.0.0.1:3000";
 const users: string[] = [], athletes: string[] = [];
@@ -15,9 +20,37 @@ async function candidate(label: string) {
   const a = await prisma.athlete.create({ data: { name: `Scout test ${label}`, slug: `scout-${unique}-${label}`, sport: "NBA", league: "NBA", team: "TEST", position: "G", currentPrice: 100, previousPrice: 100, realMarketInstruments: { create: { environment: "SANDBOX", referencePrice: 100 } } } });
   athletes.push(a.id); return a.id;
 }
+async function acceptTermsForFixture(userId: string) {
+  if (process.env.FOUNDATION4_TEST_DATABASE !== "1") throw new Error("Fixture Terms acceptance is limited to the isolated acceptance database.");
+  await prisma.adminAuditEvent.create({
+    data: {
+      actorId: userId,
+      targetId: userId,
+      action: REAL_MARKET_TERMS_ACTION,
+      reason: "Automated isolated-test fixture accepted the current Real Market Terms.",
+      details: {
+        termsVersion: REAL_MARKET_TERMS_VERSION,
+        termsHash: REAL_MARKET_TERMS_HASH,
+        acceptedAt: new Date().toISOString(),
+        country: "US",
+        region: "TEST",
+        ageConfirmed: true,
+        agreementConfirmed: true,
+        electronicConsent: true,
+        locationConfirmed: true,
+        riskConfirmed: true,
+        productModel: "LIMITED_SUPPLY_DIGITAL_ATHLETE_COLLECTIBLES",
+        fixtureOnly: true,
+      },
+    },
+  });
+}
 async function account(label: string, verified = true) {
   const u = await prisma.user.create({ data: { username: `scout_${unique}_${label}`, email: `scout-${unique}-${label}@example.test`, passwordHash: "isolated-test-only", ...(verified ? { realEnrollment: { create: { status: "VERIFIED", environment: "SANDBOX", identityHash: `scout-test-${unique}-${label}` } } } : {}) } });
-  users.push(u.id); if (verified) await transferScoutTestCash(u.id, "DEPOSIT", "1000", randomUUID()); return u.id;
+  users.push(u.id);
+  await acceptTermsForFixture(u.id);
+  if (verified) await transferScoutTestCash(u.id, "DEPOSIT", "1000", randomUUID());
+  return u.id;
 }
 async function main() {
   if (process.env.FOUNDATION4_TEST_DATABASE !== "1") throw new Error("Customer matching tests require an isolated acceptance database.");
@@ -63,7 +96,7 @@ async function main() {
   assert.equal(cashRace.filter(r => r.status === "fulfilled").length, 1, "Concurrent orders cannot spend the same cash twice.");
   const c = await candidate("shares"); await claimScoutTestInventory(seller, c);
   const shareRace = await Promise.allSettled([order(seller, c, "SELL", "10", "8"), order(seller, c, "SELL", "10", "8")]);
-  assert.equal(shareRace.filter(r => r.status === "fulfilled").length, 1, "Concurrent sells cannot reserve the same shares twice.");
+  assert.equal(shareRace.filter(r => r.status === "fulfilled").length, 1, "Concurrent sells cannot reserve the same units twice.");
   const d = await candidate("matching"); await claimScoutTestInventory(seller2, d);
   const competingAsk = await order(seller2, d, "SELL", "10", "2");
   await Promise.all([order(buyer, d, "BUY", "10", "2"), order(buyer2, d, "BUY", "10", "2")]);
@@ -114,19 +147,20 @@ async function main() {
   }
   for (const athleteId of athletes) {
     const total = await prisma.scoutPosition.aggregate({ where: { athleteId }, _sum: { quantity: true } });
-    const grants = await prisma.scoutInventoryGrant.aggregate({ where: { athleteId }, _sum: { quantity: true } }); assert.ok(new Prisma.Decimal(total._sum.quantity || 0).eq(grants._sum.quantity || 0), "Trading cannot create or destroy shares.");
+    const grants = await prisma.scoutInventoryGrant.aggregate({ where: { athleteId }, _sum: { quantity: true } }); assert.ok(new Prisma.Decimal(total._sum.quantity || 0).eq(grants._sum.quantity || 0), "Trading cannot create or destroy units.");
   }
   assert.equal(await prisma.realTrade.count({ where: { userId: { in: users } } }), 0, "Customer matching cannot use the legacy simulator.");
   assert.equal(await prisma.scoutWallet.count({ where: { environment: "LIVE" } }), 0);
-  console.log("Customer matching acceptance: PASS (priority, partials, fees, holds, replay, concurrency, controls, API, cash/share conservation)");
+  console.log("Customer matching acceptance: PASS (priority, partials, fees, holds, replay, concurrency, controls, API, cash/unit conservation, Terms gate)");
 }
 async function cleanup() {
   await prisma.scoutFill.deleteMany({ where: { buyOrder: { userId: { in: users } } } });
   const where = { userId: { in: users } };
   await prisma.scoutOrder.deleteMany({ where });
   await Promise.all([prisma.scoutLedgerEntry.deleteMany({ where }), prisma.scoutCashTransfer.deleteMany({ where }), prisma.scoutInventoryGrant.deleteMany({ where }), prisma.scoutPosition.deleteMany({ where })]);
+  await prisma.adminAuditEvent.deleteMany({ where: { actorId: { in: users }, action: REAL_MARKET_TERMS_ACTION } });
   await prisma.user.deleteMany({ where: { id: { in: users } } });
   await prisma.realMarketInstrument.deleteMany({ where: { athleteId: { in: athletes } } });
   await prisma.athlete.deleteMany({ where: { id: { in: athletes } } });
 }
-main().finally(async () => { await cleanup(); await prisma.$disconnect(); });
+main().finally(cleanup).finally(() => prisma.$disconnect());
