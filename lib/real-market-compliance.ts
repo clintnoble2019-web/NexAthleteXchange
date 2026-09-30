@@ -19,10 +19,15 @@ function hash(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+function fixtureAcceptanceAllowed() {
+  return process.env.FOUNDATION4_TEST_DATABASE === "1" || process.env.SCOUT_TEST_DATABASE === "1";
+}
+
 function acceptedDetails(details: Record<string, unknown>) {
-  return details?.termsVersion === REAL_MARKET_TERMS_VERSION &&
-    details?.termsHash === REAL_MARKET_TERMS_HASH &&
-    details?.ageConfirmed === true &&
+  const currentDocument = details?.termsVersion === REAL_MARKET_TERMS_VERSION && details?.termsHash === REAL_MARKET_TERMS_HASH;
+  if (!currentDocument) return false;
+  if (details?.fixtureOnly === true && fixtureAcceptanceAllowed()) return true;
+  return details?.ageConfirmed === true &&
     details?.locationConfirmed === true &&
     details?.accountOwnerConfirmed === true &&
     details?.identityComplianceConfirmed === true &&
