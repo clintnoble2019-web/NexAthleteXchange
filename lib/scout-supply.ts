@@ -55,10 +55,12 @@ export function houseQuoteLevels(referencePrice: number) {
   const reference = Math.max(referencePrice, 0.01);
   const halfSpread = Math.max(0.05, reference * 0.0025);
   return {
+    // The displayed/reference price is executable for normal customer buys.
+    // Deeper House inventory remains above reference so larger orders still experience slippage.
     bid1: floorCent(reference - halfSpread),
     bid2: floorCent(reference - halfSpread * 2.25),
-    ask1: ceilCent(reference + halfSpread),
-    ask2: ceilCent(reference + halfSpread * 2.25),
+    ask1: ceilCent(reference),
+    ask2: ceilCent(reference + halfSpread),
     depth1: visibleQuoteDepth(reference),
     depth2: visibleQuoteDepth(reference, 1.5),
   };
