@@ -12,7 +12,7 @@ NexPoints are virtual points with no real-money value.
 
 **A market built on scouting conviction.** The planned first stage connects funded buyers and sellers of athlete positions. Performance data informs scouting and reference valuation; matching customer orders determine execution prices. Selling requires an available buyer. Actual trading data can support a later evaluation of professional liquidity providers, while net fee income can support company reserves and development.
 
-Real Market remains coming soon. The public copy describes the plan, not a working customer order book: current internal flows are reference-price and LP simulators, and live funds remain disabled. The current product decisions, earnings-retention policy, retirement-policy gaps, and implementation requirements are in [docs/REAL_MARKET_LAUNCH_MODEL.md](docs/REAL_MARKET_LAUNCH_MODEL.md).
+Real Market remains coming soon. The public copy describes the plan. Customer order matching can now be tested with fake money at `/real-market/test`; reference-price and LP simulators remain separate, and live funds remain disabled. See [docs/CUSTOMER_MATCHING_TEST.md](docs/CUSTOMER_MATCHING_TEST.md) for setup. The current product decisions, earnings-retention policy, retirement-policy gaps, and implementation requirements are in [docs/REAL_MARKET_LAUNCH_MODEL.md](docs/REAL_MARKET_LAUNCH_MODEL.md).
 
 ## Stack
 

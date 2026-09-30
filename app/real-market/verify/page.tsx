@@ -2,14 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { realMarketSandboxPreviewEnabled } from "@/lib/real-market";
+import { realMarketCustomerTestEnabled, realMarketSandboxPreviewEnabled } from "@/lib/real-market";
 
 export default async function VerifyIdentity() {
   if (!realMarketSandboxPreviewEnabled()) redirect("/real-market");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const enrollment = await prisma.realEnrollment.findUnique({ where: { userId: user.id } });
-  if (enrollment?.status === "VERIFIED" && enrollment.environment === "SANDBOX") redirect("/real-market/sandbox");
+  if (enrollment?.status === "VERIFIED" && enrollment.environment === "SANDBOX") redirect(realMarketCustomerTestEnabled() ? "/real-market/test" : "/real-market/sandbox");
   return <main className="shell"><section className="card form">
     <span className="tradeBadge sellBadge">SANDBOX IDENTITY CHECK</span>
     <h1>Verify your identity</h1>

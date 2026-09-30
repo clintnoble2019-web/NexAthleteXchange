@@ -4,7 +4,7 @@ Status: Foundation architecture
 Environment: Sandbox only
 Live funds: Disabled
 
-Current launch direction: [The Scouting Economy](REAL_MARKET_LAUNCH_MODEL.md). First-stage trading is planned to match funded customer orders, with professional liquidity considered later. This document describes the existing simulator foundation; customer order matching is not implemented. Its reference-price fills and retirement redemptions are not live product promises.
+Current launch direction: [The Scouting Economy](REAL_MARKET_LAUNCH_MODEL.md). First-stage trading is planned to match funded customer orders, with professional liquidity considered later. This document describes the existing simulator foundation; customer order matching is implemented only in the separate fake-money test market. Its reference-price fills and retirement redemptions are not live product promises.
 
 ## 1. Product boundary
 

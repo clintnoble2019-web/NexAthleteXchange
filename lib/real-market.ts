@@ -35,3 +35,7 @@ export function assertRealMarketSandbox() {
 export function realMarketSandboxPreviewEnabled() {
   return process.env.NODE_ENV === "development" || process.env.REAL_MARKET_SANDBOX_PREVIEW === "1";
 }
+
+export function realMarketCustomerTestEnabled() {
+  return realMarketSandboxPreviewEnabled() && process.env.REAL_MARKET_CUSTOMER_TEST === "1";
+}

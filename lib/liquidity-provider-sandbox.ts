@@ -1,3 +1,4 @@
+import { cancelScoutOrdersTx, scoutTransaction } from "@/lib/scout-market";
 import { consumeRateLimit } from "@/lib/request-security";
 import { assertTradingOpen } from "@/lib/beta-controls";
 import { createHash, randomBytes } from "node:crypto";
@@ -462,31 +463,16 @@ export async function fundSandboxSettlementReserve(amountInput: number | string)
 
 export async function beginSandboxCareerEndingRetirement(athleteId: string, reason: string, now = new Date()) {
   assertRealMarketSandbox();
-  const instrument = await prisma.realMarketInstrument.findUnique({
-    where: { athleteId_environment: { athleteId, environment: SANDBOX } },
-    include: { athlete: true },
-  });
-  if (!instrument || instrument.status !== RealInstrumentStatus.ACTIVE) throw new Error("Only an active sandbox instrument can enter career-ending retirement.");
   if (reason.trim().length < 4) throw new Error("Retirement reason is required.");
-
-  const retirementDeadline = new Date(now.getTime() + realMarket.careerEndingRetirementDays * 86400000);
-  await prisma.$transaction([
-    prisma.liquidityQuote.updateMany({
-      where: { instrumentId: instrument.id, status: LiquidityQuoteStatus.ACTIVE },
-      data: { status: LiquidityQuoteStatus.CANCELLED, remaining: 0 },
-    }),
-    prisma.realMarketInstrument.update({
-      where: { id: instrument.id },
-      data: {
-        status: RealInstrumentStatus.RETIRING,
-        frozenSettlementPrice: instrument.referencePrice,
-        retirementDeadline,
-        retirementReason: reason.trim().slice(0, 240),
-      },
-    }),
-  ]);
-
-  return { ...instrument, status: RealInstrumentStatus.RETIRING, frozenSettlementPrice: instrument.referencePrice, retirementDeadline };
+  return scoutTransaction(async tx => {
+    const instrument = await tx.realMarketInstrument.findUnique({ where: { athleteId_environment: { athleteId, environment: SANDBOX } }, include: { athlete: true } });
+    if (!instrument || instrument.status !== RealInstrumentStatus.ACTIVE) throw new Error("Only an active sandbox instrument can enter career-ending retirement.");
+    const retirementDeadline = new Date(now.getTime() + realMarket.careerEndingRetirementDays * 86400000);
+    await cancelScoutOrdersTx(tx, { athleteId }, "Instrument entering retirement");
+    await tx.liquidityQuote.updateMany({ where: { instrumentId: instrument.id, status: LiquidityQuoteStatus.ACTIVE }, data: { status: LiquidityQuoteStatus.CANCELLED, remaining: 0 } });
+    await tx.realMarketInstrument.update({ where: { id: instrument.id }, data: { status: RealInstrumentStatus.RETIRING, frozenSettlementPrice: instrument.referencePrice, retirementDeadline, retirementReason: reason.trim().slice(0, 240) } });
+    return { ...instrument, status: RealInstrumentStatus.RETIRING, frozenSettlementPrice: instrument.referencePrice, retirementDeadline };
+  });
 }
 
 export async function settleExpiredSandboxRetirements(now = new Date()) {

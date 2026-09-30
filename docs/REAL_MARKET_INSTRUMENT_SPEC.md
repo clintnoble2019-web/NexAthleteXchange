@@ -34,7 +34,7 @@ Each instrument has:
 - ask depth
 - instrument status
 
-The reference price is updated from the NexAthleteXchange performance engine while an instrument is ACTIVE. A live first-stage execution will require a funded buyer and an inventory-backed seller; customer matching is not yet implemented. In the LP sandbox, quotes are constrained by spread, depth, exposure, and uptime limits.
+The reference price is updated from the NexAthleteXchange performance engine while an instrument is ACTIVE. A live first-stage execution will require a funded buyer and an inventory-backed seller; customer matching is available only in the separate fake-money test market. In the LP sandbox, quotes are constrained by spread, depth, exposure, and uptime limits.
 
 LP maker fee target: $0.00.
 Retail execution fee: $2.00 per executed buy or sell.

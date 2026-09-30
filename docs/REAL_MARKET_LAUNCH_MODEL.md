@@ -1,7 +1,7 @@
 # Real Market — The Scouting Economy
 
 Status: planned launch model and public positioning, September 30, 2026
-Implementation: public copy updated; customer order matching is not implemented
+Implementation: public copy updated; customer order matching is implemented only in the separate fake-money test market
 Live funds: disabled
 
 ## Product story
@@ -76,7 +76,7 @@ Before live activation, define the handling of retirement, permanent injury, dea
 
 ## Implementation and launch gaps
 
-This copy change does not add a customer order book or change simulator accounting. The customer sandbox still executes artificial reference-price trades, and the LP sandbox still executes artificial provider quotes. Their UI labels identify those limits.
+The customer order book is now implemented at `/real-market/test` with separate fake-money balances, holdings, orders, fills, and ledgers. See [Customer Matching Test](CUSTOMER_MATCHING_TEST.md) for setup and current rules. Legacy simulator accounting remains separate. The customer sandbox still executes artificial reference-price trades, and the LP sandbox still executes artificial provider quotes. Their UI labels identify those limits.
 
 Before a live scout-to-scout market can launch, implement and review:
 
