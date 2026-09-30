@@ -14,7 +14,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return <html lang="en"><body>
     <a className="skipLink" href="#main-content">Skip to content</a>
     <nav aria-label="Main navigation" className="nav"><Link className="brand" href="/">NexAthleteXchange</Link><div className="navlinks">
-      <Link href="/market">Market</Link><Link href="/real-market">Real Market</Link><Link href="/discover">Discover</Link><Link href="/leaderboard">Leaderboard</Link><Link href="/tutorial">How it works</Link>{user && <Link href="/watchlist">Watchlist</Link>}<Link href="/portfolio">Portfolio</Link>
+      <Link href="/market">Free Market</Link><Link href="/real-market">Real Market</Link><Link href="/discover">Discover</Link><Link href="/leaderboard">Leaderboard</Link><Link href="/tutorial">How it works</Link>{user && <Link href="/watchlist">Watchlist</Link>}<Link href="/portfolio">Portfolio</Link>
       {user && isAdmin(user.id) && <Link href="/admin">Admin</Link>}
       {user && realMarketCustomerTestEnabled() && <Link href="/real-market/test">Test Market</Link>}
       {user ? <form action="/api/auth/logout" method="post"><button className="secondary">Log out</button></form> : <Link href="/login">Log in</Link>}
