@@ -21,6 +21,7 @@ export function portfolioValue(
 export async function snapshotWeeklyBaselines(now = new Date()) {
   const weekStart = startOfCurrentWeekUtc(now);
   const users = await prisma.user.findMany({
+    where: { accountFrozen: false, leaderboardEligible: true },
     include: {
       wallet: true,
       positions: { include: { athlete: { select: { currentPrice: true } } } },
@@ -46,6 +47,7 @@ export async function snapshotWeeklyBaselines(now = new Date()) {
 export async function loadWeeklyLeaderboard(limit = 100) {
   const weekStart = startOfCurrentWeekUtc();
   const users = await prisma.user.findMany({
+    where: { accountFrozen: false, leaderboardEligible: true },
     include: {
       wallet: true,
       positions: { include: { athlete: { select: { currentPrice: true } } } },

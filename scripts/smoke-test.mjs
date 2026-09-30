@@ -5,9 +5,9 @@ const baseUrl = process.env.BASE_URL || "http://127.0.0.1:3000";
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 async function postForm(path, data, cookie) {
-  const headers = { "content-type": "application/x-www-form-urlencoded" };
+  const headers = { "content-type": "application/x-www-form-urlencoded", origin: new URL(baseUrl).origin };
   if (cookie) headers.cookie = cookie;
-  return fetch(`${baseUrl}${path}`, { method: "POST", headers, body: new URLSearchParams(data), redirect: "manual" });
+  return fetch(`${baseUrl}${path}`, { method: "POST", headers, body: new URLSearchParams(path === "/api/trade" ? { ...data, requestKey: crypto.randomUUID() } : data), redirect: "manual" });
 }
 function assertTradeError(response, label) {
   assert(response.status === 303, `${label} expected safe redirect 303, got ${response.status}`);

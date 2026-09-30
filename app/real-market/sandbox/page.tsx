@@ -1,3 +1,4 @@
+import { sandboxAccessVerified } from "@/lib/beta-controls";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RealFundingRail, RealFundingType, RealMarketEnvironment, TradeSide } from "@prisma/client";
@@ -24,6 +25,7 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  if (!(await sandboxAccessVerified(user.id))) redirect("/real-market/verify");
   const params = await searchParams;
   const status = first(params.rm);
   const error = first(params.rmError);
@@ -68,7 +70,7 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
     <header className="realSandboxHeader">
       <div>
         <div className="realMarketBadge sandboxBadge">SANDBOX ONLY • NO REAL MONEY</div>
-        <h1>Real Market Foundation 2</h1>
+        <h1>Real Market Sandbox</h1>
         <p className="muted">Internal test console for USD/USDC balances, ${realMarket.tradeFee.toFixed(2)} fees, persistent athlete positions, funding states, and Solana Devnet-style settlement records.</p>
       </div>
       <Link className="button secondary" href="/real-market">Back to Coming Soon</Link>

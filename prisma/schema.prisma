@@ -100,6 +100,12 @@ model User {
   realLedger              RealLedgerEntry[]
   realFundingTransactions RealFundingTransaction[]
   liquidityFills          LiquidityFill[]
+  accountFrozen           Boolean                   @default(false)
+  leaderboardEligible     Boolean                   @default(true)
+  realEnrollment          RealEnrollment?
+  rewardClaims            RewardClaim[]
+  tradeRequests           TradeRequest[]
+  passwordResetTokens     PasswordResetToken[]
 }
 
 model Session {
@@ -473,4 +479,81 @@ model RealSettlementEvent {
   createdAt    DateTime             @default(now())
   instrument   RealMarketInstrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
   @@index([instrumentId, createdAt])
+}
+
+// Foundation 4: no documents, birthdates, bank details, or raw identity tokens.
+model RealEnrollment {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  status          String   @default("PENDING")
+  environment     RealMarketEnvironment @default(SANDBOX)
+  identityHash    String?  @unique
+  providerRef     String?
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([status, createdAt])
+}
+
+model RewardClaim {
+  id           String   @id @default(cuid())
+  userId       String
+  campaign     String
+  identityHash String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([campaign, identityHash])
+  @@unique([campaign, userId])
+}
+
+model AdminAuditEvent {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  targetId  String
+  reason    String
+  details   Json
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@index([targetId, createdAt])
+}
+
+model RateLimitWindow {
+  id          String   @id @default(cuid())
+  key         String
+  windowStart DateTime
+  count       Int      @default(1)
+  @@unique([key, windowStart])
+  @@index([windowStart])
+}
+
+model BetaControl {
+  id                String   @id @default("global")
+  freeTradingPaused Boolean  @default(false)
+  sandboxPaused     Boolean  @default(false)
+  message           String   @default("Trading is temporarily paused. Please try again later.")
+  updatedAt         DateTime @updatedAt
+}
+
+model TradeRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  requestKey  String
+  fingerprint String
+  tradeId     String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, requestKey])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
 }

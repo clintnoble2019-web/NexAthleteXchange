@@ -1,3 +1,5 @@
+import { consumeRateLimit } from "@/lib/request-security";
+import { assertTradingOpen } from "@/lib/beta-controls";
 import { createHash, randomBytes } from "node:crypto";
 import {
   LiquidityProviderStatus,
@@ -160,6 +162,7 @@ export async function authenticateSandboxLiquidityProvider(apiKey: string, sourc
   if (key.ipAllowlist.length > 0 && (!sourceIp || !key.ipAllowlist.includes(sourceIp))) {
     throw new Error("Source IP is not allowlisted for this liquidity provider.");
   }
+  if (!(await consumeRateLimit("lp-api", key.provider.id, 120))) throw new Error("Liquidity-provider request limit exceeded. Try again shortly.");
   return key.provider;
 }
 
@@ -341,6 +344,7 @@ export async function executeSandboxLiquidityBackedTrade(
   if (!quote || quote.remaining.lt(quantity)) throw new Error("Not enough LP sandbox liquidity is available for this trade.");
 
   return prisma.$transaction(async (tx) => {
+    await assertTradingOpen(tx, userId, true);
     const currentQuote = await tx.liquidityQuote.findUnique({ where: { id: quote.id } });
     if (!currentQuote || currentQuote.status !== LiquidityQuoteStatus.ACTIVE || currentQuote.expiresAt <= new Date() || currentQuote.remaining.lt(quantity)) {
       throw new Error("Liquidity quote changed before execution. Try again.");

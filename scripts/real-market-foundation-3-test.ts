@@ -118,6 +118,7 @@ async function main() {
       username: `rmf3user${String(unique).slice(-7)}`,
       email: `rmf3-${unique}@example.test`,
       passwordHash: "sandbox-only-test-hash",
+      realEnrollment: { create: { status: "VERIFIED", environment: "SANDBOX", identityHash: `test-foundation3-${unique}` } },
       realWallets: { create: { environment: RealMarketEnvironment.SANDBOX, currency: "USD", balance: 1000 } },
     },
   });

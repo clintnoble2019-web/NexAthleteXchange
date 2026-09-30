@@ -1,3 +1,6 @@
+import { publicError } from "@/lib/public-error";
+import { sandboxAccessVerified } from "@/lib/beta-controls";
+import { consumeRateLimit } from "@/lib/request-security";
 import { NextResponse } from "next/server";
 import { RealFundingRail, RealFundingType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,6 +22,8 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(publicRequestUrl(req, "/login?status=session-required"), 303);
 
+  if (!(await sandboxAccessVerified(user.id))) return NextResponse.redirect(publicRequestUrl(req, "/real-market/verify"), 303);
+  if (!(await consumeRateLimit("sandbox-actions", user.id, 30))) return NextResponse.json({ error: "Please wait before submitting another sandbox request." }, { status: 429 });
   const form = await req.formData();
   const type = String(form.get("type") || "") as RealFundingType;
   const rail = String(form.get("rail") || "") as RealFundingRail;
@@ -37,6 +42,6 @@ export async function POST(req: Request) {
     const verb = type === RealFundingType.DEPOSIT ? "deposit" : "withdrawal";
     return redirectStatus(req, "rm", `Sandbox ${verb} completed.`);
   } catch (error) {
-    return redirectStatus(req, "rmError", error instanceof Error ? error.message : "Sandbox funding failed.");
+    return redirectStatus(req, "rmError", publicError(error, "Sandbox funding failed."));
   }
 }

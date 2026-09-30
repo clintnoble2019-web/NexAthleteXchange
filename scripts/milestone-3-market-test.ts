@@ -26,9 +26,9 @@ async function get(path: string, cookie?: string) {
 }
 
 async function postForm(path: string, data: Record<string, string>, cookie?: string) {
-  const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded" };
+  const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded", origin: new URL(baseUrl).origin };
   if (cookie) headers.cookie = cookie;
-  return fetch(`${baseUrl}${path}`, { method: "POST", headers, body: new URLSearchParams(data), redirect: "manual" });
+  return fetch(`${baseUrl}${path}`, { method: "POST", headers, body: new URLSearchParams(path === "/api/trade" ? { ...data, requestKey: crypto.randomUUID() } : data), redirect: "manual" });
 }
 
 async function main() {

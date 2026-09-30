@@ -55,3 +55,7 @@ The sync pulls NBA and MLB teams plus all active players. Existing market player
 - Discovery screen
 - Configurable pricing module
 - BALLDONTLIE roster-ingestion foundation
+
+## Foundation 4
+
+Beta operations, protected admin controls, KYC-first sandbox enrollment, reward eligibility, request replay protection, and password recovery are documented in [docs/FOUNDATION_4.md](docs/FOUNDATION_4.md). Apply the additive release SQL before deploying this code. Production identity and email integrations must be configured separately; live funds remain disabled.

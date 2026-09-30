@@ -1,3 +1,4 @@
+import { isAdmin } from "@/lib/beta-controls";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LiquidityQuoteStatus, RealInstrumentStatus, RealMarketEnvironment, Sport } from "@prisma/client";
@@ -15,6 +16,7 @@ export default async function LiquiditySandboxPage() {
   if (!realMarketSandboxPreviewEnabled()) redirect("/real-market");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (!isAdmin(user.id)) redirect("/market");
 
   const environment = RealMarketEnvironment.SANDBOX;
   const now = new Date();

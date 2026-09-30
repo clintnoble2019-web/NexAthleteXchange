@@ -1,3 +1,4 @@
+import { assertTradingOpen } from "@/lib/beta-controls";
 import {
   Prisma,
   RealFundingRail,
@@ -45,6 +46,7 @@ export async function simulateSandboxFunding(
   externalAddress?: string,
 ) {
   assertRealMarketSandbox();
+  if (!Object.values(RealFundingType).includes(type) || !Object.values(RealFundingRail).includes(rail)) throw new Error("Invalid funding request.");
   const amount = decimalAmount(amountInput);
 
   if (type === RealFundingType.WITHDRAWAL && rail === RealFundingRail.DEBIT_CARD) {
@@ -76,6 +78,7 @@ export async function simulateSandboxFunding(
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await assertTradingOpen(tx, userId, true);
       const wallet = await tx.realWallet.upsert({
         where: { userId_environment: { userId, environment: SANDBOX } },
         create: { userId, environment: SANDBOX, currency: "USD", balance: 0 },
@@ -151,9 +154,11 @@ export async function executeSandboxRealTrade(
   if (!Number.isFinite(quantityInput)) throw new Error("Quantity must be a valid number.");
 
   const quantity = new Prisma.Decimal(String(quantityInput));
+  if (!Object.values(TradeSide).includes(side) || quantity.decimalPlaces() > 4 || quantity.gt(1000000)) throw new Error("Invalid trade side or quantity.");
   if (quantity.lt(MIN_QUANTITY)) throw new Error("Minimum trade quantity is 0.01 units.");
 
   return prisma.$transaction(async (tx) => {
+    await assertTradingOpen(tx, userId, true);
     const [wallet, athlete, position] = await Promise.all([
       tx.realWallet.upsert({
         where: { userId_environment: { userId, environment: SANDBOX } },

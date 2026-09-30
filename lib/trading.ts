@@ -1,16 +1,29 @@
 import { Prisma, TradeSide } from "@prisma/client";
+import { assertTradingOpen } from "@/lib/beta-controls";
 import { prisma } from "@/lib/prisma";
 
 const MIN_TRADE_QUANTITY = new Prisma.Decimal("0.01");
 const MIN_TRADE_VALUE = new Prisma.Decimal("0.01");
 
-export async function executeTrade(userId: string, athleteId: string, side: TradeSide, quantityInput: number) {
+export async function executeTrade(userId: string, athleteId: string, side: TradeSide, quantityInput: number, requestKey?: string) {
+  if (![TradeSide.BUY, TradeSide.SELL].includes(side)) throw new Error("Invalid trade side.");
+  if (requestKey && !/^[a-zA-Z0-9_-]{16,100}$/.test(requestKey)) throw new Error("Invalid trade request identifier.");
   if (!Number.isFinite(quantityInput)) throw new Error("Quantity must be a valid number.");
 
   const quantity = new Prisma.Decimal(String(quantityInput));
+  if (quantity.decimalPlaces() > 4 || quantity.gt(1000000)) throw new Error("Use up to four decimal places and at most 1,000,000 units.");
   if (quantity.lt(MIN_TRADE_QUANTITY)) throw new Error("Minimum trade quantity is 0.01 units.");
 
+  const fingerprint = `${athleteId}:${side}:${quantity.toString()}`;
   return prisma.$transaction(async (tx) => {
+    await assertTradingOpen(tx, userId);
+    if (requestKey) {
+      const existing = await tx.tradeRequest.findUnique({ where: { userId_requestKey: { userId, requestKey } } });
+      if (existing) {
+        if (existing.fingerprint !== fingerprint) throw new Error("This request identifier was already used for another trade.");
+        return tx.trade.findUniqueOrThrow({ where: { id: existing.tradeId } });
+      }
+    }
     const [wallet, athlete, position] = await Promise.all([
       tx.wallet.findUnique({ where: { userId } }),
       tx.athlete.findUnique({ where: { id: athleteId } }),
@@ -46,6 +59,7 @@ export async function executeTrade(userId: string, athleteId: string, side: Trad
       await tx.ledgerEntry.create({
         data: { userId, type: "TRADE_BUY", amount: total.neg(), balance: newBalance, reference: trade.id }
       });
+      if (requestKey) await tx.tradeRequest.create({ data: { userId, requestKey, fingerprint, tradeId: trade.id } });
       return trade;
     }
 
@@ -65,6 +79,7 @@ export async function executeTrade(userId: string, athleteId: string, side: Trad
     await tx.ledgerEntry.create({
       data: { userId, type: "TRADE_SELL", amount: total, balance: newBalance, reference: trade.id }
     });
+    if (requestKey) await tx.tradeRequest.create({ data: { userId, requestKey, fingerprint, tradeId: trade.id } });
     return trade;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
