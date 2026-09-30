@@ -1,4 +1,4 @@
-export type BdlSport = "NBA" | "MLB";
+export type BdlSport = "NBA" | "MLB" | "NFL";
 
 export type BdlTeam = {
   id: number;
@@ -23,6 +23,11 @@ export type BdlNbaSeasonAverage = {
 };
 
 export type BdlMlbSeasonStat = {
+  playerId: number;
+  stats: Record<string, unknown>;
+};
+
+export type BdlNflSeasonStat = {
   playerId: number;
   stats: Record<string, unknown>;
 };
@@ -67,11 +72,15 @@ async function request<T>(path: string, attempt = 0): Promise<T> {
 }
 
 function teamPath(sport: BdlSport) {
-  return sport === "NBA" ? "/v1/teams" : "/mlb/v1/teams";
+  if (sport === "NBA") return "/v1/teams";
+  if (sport === "MLB") return "/mlb/v1/teams";
+  return "/nfl/v1/teams";
 }
 
 function playersPath(sport: BdlSport) {
-  return sport === "NBA" ? "/v1/players/active" : "/mlb/v1/players/active";
+  if (sport === "NBA") return "/v1/players/active";
+  if (sport === "MLB") return "/mlb/v1/players/active";
+  return "/nfl/v1/players/active";
 }
 
 function normalizeTeam(sport: BdlSport, raw: any): BdlTeam {
@@ -86,21 +95,38 @@ function normalizeTeam(sport: BdlSport, raw: any): BdlTeam {
       league: "NBA"
     };
   }
+
+  if (sport === "MLB") {
+    return {
+      id: raw.id,
+      name: raw.display_name ?? raw.name,
+      abbreviation: raw.abbreviation,
+      city: raw.location,
+      division: raw.division,
+      league: raw.league ?? "MLB"
+    };
+  }
+
   return {
     id: raw.id,
-    name: raw.display_name ?? raw.name,
+    name: raw.full_name ?? `${raw.location ?? ""} ${raw.name ?? ""}`.trim(),
     abbreviation: raw.abbreviation,
     city: raw.location,
+    conference: raw.conference,
     division: raw.division,
-    league: raw.league ?? "MLB"
+    league: "NFL"
   };
 }
 
 function normalizePlayer(sport: BdlSport, raw: any): BdlPlayer {
+  const name = sport === "MLB"
+    ? (raw.full_name ?? `${raw.first_name ?? ""} ${raw.last_name ?? ""}`.trim())
+    : `${raw.first_name ?? ""} ${raw.last_name ?? ""}`.trim();
+
   return {
     id: raw.id,
-    name: sport === "NBA" ? `${raw.first_name} ${raw.last_name}`.trim() : (raw.full_name ?? `${raw.first_name} ${raw.last_name}`.trim()),
-    position: raw.position || "—",
+    name,
+    position: sport === "NFL" ? (raw.position_abbreviation || raw.position || "—") : (raw.position || "—"),
     team: normalizeTeam(sport, raw.team)
   };
 }
@@ -127,7 +153,9 @@ export async function getBdlActivePlayers(sport: BdlSport): Promise<BdlPlayer[]>
     if (cursor != null) query.set("cursor", String(cursor));
     return `${playersPath(sport)}?${query}`;
   });
-  return rawPlayers.map((player) => normalizePlayer(sport, player));
+  return rawPlayers
+    .filter((player) => player?.team?.abbreviation)
+    .map((player) => normalizePlayer(sport, player));
 }
 
 export async function getBdlNbaSeasonAverages(season: number): Promise<BdlNbaSeasonAverage[]> {
@@ -163,6 +191,21 @@ export async function getBdlMlbSeasonStats(season: number): Promise<BdlMlbSeason
     const query = new URLSearchParams({ season: String(season), season_type: "regular", per_page: "100" });
     if (cursor != null) query.set("cursor", String(cursor));
     return `/mlb/v1/season_stats?${query}`;
+  });
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    if (!Number.isFinite(playerId)) return [];
+    return [{ playerId, stats: row as Record<string, unknown> }];
+  });
+}
+
+export async function getBdlNflSeasonStats(season: number): Promise<BdlNflSeasonStat[]> {
+  const rows = await collectPages<any>((cursor) => {
+    const query = new URLSearchParams({ season: String(season), per_page: "100" });
+    query.append("season_types[]", "2");
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `/nfl/v1/season_stats?${query}`;
   });
 
   return rows.flatMap((row) => {
@@ -228,6 +271,57 @@ export async function getBdlMlbLiveStats(dates: string[]): Promise<BdlLivePlayer
       for (const gameId of batch) query.append("game_ids[]", String(gameId));
       if (cursor != null) query.set("cursor", String(cursor));
       return `/mlb/v1/stats?${query}`;
+    });
+    rows.push(...batchRows);
+  }
+
+  return rows.flatMap((row) => {
+    const playerId = Number(row.player?.id ?? row.player_id);
+    const gameId = Number(row.game?.id ?? row.game_id);
+    if (!Number.isFinite(playerId) || !Number.isFinite(gameId)) return [];
+    const meta = gameMeta.get(gameId);
+    return [{
+      playerId,
+      gameId,
+      gameDate: meta?.gameDate ?? (row.game?.date ? String(row.game.date).slice(0, 10) : undefined),
+      statusState: meta?.statusState ?? String(row.game?.status_state ?? row.status_state ?? "unknown").toLowerCase(),
+      stats: row as Record<string, unknown>,
+    }];
+  });
+}
+
+export async function getBdlNflLiveStats(dates: string[]): Promise<BdlLivePlayerStat[]> {
+  const games = await collectPages<any>((cursor) => {
+    const query = new URLSearchParams({ per_page: "100" });
+    for (const date of dates) query.append("dates[]", date);
+    query.append("season_types[]", "2");
+    if (cursor != null) query.set("cursor", String(cursor));
+    return `/nfl/v1/games?${query}`;
+  });
+
+  const eligibleGames = games.filter((game) => {
+    const state = String(game.status_state ?? "unknown").toLowerCase();
+    return state === "in_progress" || state === "final";
+  });
+  const gameMeta = new Map<number, { statusState: string; gameDate?: string }>(eligibleGames.map((game) => [
+    Number(game.id),
+    {
+      statusState: String(game.status_state ?? "unknown").toLowerCase(),
+      gameDate: game.date ? String(game.date).slice(0, 10) : undefined,
+    }
+  ]));
+  const gameIds = eligibleGames.map((game) => Number(game.id)).filter(Number.isFinite);
+  if (gameIds.length === 0) return [];
+
+  const rows: any[] = [];
+  for (let i = 0; i < gameIds.length; i += 20) {
+    const batch = gameIds.slice(i, i + 20);
+    const batchRows = await collectPages<any>((cursor) => {
+      const query = new URLSearchParams({ per_page: "100" });
+      query.append("season_types[]", "2");
+      for (const gameId of batch) query.append("game_ids[]", String(gameId));
+      if (cursor != null) query.set("cursor", String(cursor));
+      return `/nfl/v1/stats?${query}`;
     });
     rows.push(...batchRows);
   }
