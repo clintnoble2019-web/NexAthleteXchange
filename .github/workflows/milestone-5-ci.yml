@@ -91,6 +91,9 @@ jobs:
       - name: Run Milestone 5 acceptance test
         run: npm run test:milestone5
 
+      - name: Run Real Market Foundation 2 acceptance test
+        run: npm run test:realmarket
+
       - name: Show app log on failure
         if: failure()
         run: cat /tmp/nexathletexchange.log || true
