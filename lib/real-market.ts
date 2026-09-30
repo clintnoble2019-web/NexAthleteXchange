@@ -27,6 +27,8 @@ export const realMarket = {
     sports: ["NBA", "NFL", "MLB"] as const,
     nflPositions: ["QB", "WR", "RB"] as const,
   },
+  // Legacy simulator behavior only. The planned live collectible product has no guaranteed redemption.
+  careerEndingRetirementDays: 7,
 };
 
 export function assertRealMarketDisabled() {
