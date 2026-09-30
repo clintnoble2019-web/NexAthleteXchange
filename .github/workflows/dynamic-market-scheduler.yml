@@ -79,8 +79,6 @@ jobs:
           MODE="live"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ inputs.mode }}"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            MODE="rosters"
           elif [ "${{ github.event.schedule }}" = "17 10 * * *" ]; then
             MODE="baseline"
           elif [ "${{ github.event.schedule }}" = "37 9 * * 2" ]; then
