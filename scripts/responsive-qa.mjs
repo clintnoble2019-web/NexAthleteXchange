@@ -23,7 +23,8 @@ try {
     for (const route of ["/market", "/portfolio", "/admin", "/real-market/verify", "/athletes/" + athlete.slug]) {
       const response = await page.goto(base + route);
       if (response?.status() !== 200) throw new Error("Could not load " + route);
-      await page.waitForLoadState("networkidle");
+      await page.locator("main h1").waitFor({ state: "visible" });
+      await page.evaluate(() => document.fonts.ready);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       if (overflow) throw new Error("Page overflow at " + width + "px on " + route);
       await page.screenshot({ path: "qa-output/" + route.replaceAll("/", "_") + "-" + width + ".png", fullPage: true });
