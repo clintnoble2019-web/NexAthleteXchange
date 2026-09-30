@@ -9,6 +9,7 @@ on:
   schedule:
     - cron: "*/5 * * * *"
     - cron: "17 10 * * *"
+    - cron: "37 9 * * 2"
   workflow_dispatch:
     inputs:
       mode:
@@ -19,6 +20,7 @@ on:
         options:
           - live
           - baseline
+          - rosters
 
 permissions:
   contents: read
@@ -77,11 +79,21 @@ jobs:
           MODE="live"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ inputs.mode }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            MODE="rosters"
           elif [ "${{ github.event.schedule }}" = "17 10 * * *" ]; then
             MODE="baseline"
+          elif [ "${{ github.event.schedule }}" = "37 9 * * 2" ]; then
+            MODE="rosters"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running $MODE market update"
+
+      - name: Sync active rosters and initialize new players
+        if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'rosters'
+        run: |
+          npm run sync:rosters
+          npm run init:prices
 
       - name: Update live game prices
         if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'live'
