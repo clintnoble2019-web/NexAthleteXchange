@@ -13,8 +13,8 @@ import styles from "./workspace.module.css";
 
 export const metadata = { title: "Test Market | NexAthleteXchange", robots: { index: false, follow: false } };
 const action = "/api/real-market/test/actions";
-function cashForm(type: "DEPOSIT" | "WITHDRAWAL") {
-  return <form action={action} method="post"><h3>{type === "DEPOSIT" ? "Add test cash" : "Withdraw test cash"}</h3><input type="hidden" name="action" value="CASH"/><input type="hidden" name="type" value={type}/><input type="hidden" name="requestKey" value={randomUUID()}/><label>Amount ($)<input name="amount" type="number" min="0.01" max="1000000" step="0.01" defaultValue={type === "DEPOSIT" ? "1000" : "25"} required/></label><button>{type === "DEPOSIT" ? "Add test cash" : "Test withdrawal"}</button><small>Simulated cash only. No bank or crypto transfer.</small></form>;
+function cashForm() {
+  return <form action={action} method="post"><h3>Add fake test cash</h3><input type="hidden" name="action" value="CASH"/><input type="hidden" name="type" value="DEPOSIT"/><input type="hidden" name="requestKey" value={randomUUID()}/><label>Amount ($)<input name="amount" type="number" min="0.01" max="1000000" step="0.01" defaultValue="1000" required/></label><button>Add test cash</button><small>Simulated buying power only. It cannot be withdrawn or converted to USDC.</small></form>;
 }
 export default async function ScoutTestMarket({ searchParams }: { searchParams: Promise<{ athlete?: string; notice?: string; error?: string }> }) {
   if (!realMarketCustomerTestEnabled()) redirect("/real-market");
@@ -58,7 +58,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
   return <main className={styles.dashboard}>
     <header className={styles.topline}><div><span className={styles.eyebrow}>Digital athlete collectible test market</span><h1>Real Market</h1></div><span className={styles.testPill}>Test account · Fake money</span></header>
     {params.notice && <div role="status" className={styles.notice}>{params.notice}</div>}{params.error && <div role="alert" className={`${styles.notice} ${styles.error}`}>{params.error}</div>}
-    <section className={styles.summary} aria-label="Account overview"><div className={styles.summaryMetric}><span>Test portfolio reference value</span><strong>{money(Number(account.balance) + referenceValue)}</strong><small>Test cash + Scout reference holdings value</small></div><div className={styles.summaryMetric}><span>Buying power</span><strong>{money(availableCash)}</strong></div><div className={styles.summaryMetric}><span>Cash held</span><strong>{money(account.reservedCash)}</strong></div><div className={styles.summaryMetric}><span>Holdings Scout value</span><strong>{money(referenceValue)}</strong></div><a className={styles.summaryLink} href="#test-funding">Manage test cash</a></section>
+    <section className={styles.summary} aria-label="Account overview"><div className={styles.summaryMetric}><span>Test portfolio reference value</span><strong>{money(Number(account.balance) + referenceValue)}</strong><small>Test cash + Scout reference holdings value</small></div><div className={styles.summaryMetric}><span>Buying power</span><strong>{money(availableCash)}</strong></div><div className={styles.summaryMetric}><span>Cash held</span><strong>{money(account.reservedCash)}</strong></div><div className={styles.summaryMetric}><span>Holdings Scout value</span><strong>{money(referenceValue)}</strong></div><a className={styles.summaryLink} href="#test-funding">Add test cash</a></section>
     <MobileAthletePicker selected={athleteId} athletes={athleteChoices}/>
     <div className={styles.workspace}>
       <section className={styles.asset} aria-label="Selected athlete">{selected ? <>
@@ -71,7 +71,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
       <AthleteList selected={athleteId} athletes={athleteChoices}/>
     </div>
     <ActivityTabs initialActive={params.notice?.startsWith("Order ") ? 1 : 0} panels={[{ label:"Positions", count:positions.length, content:positionsPanel },{ label:"Orders", count:orders.length, content:ordersPanel },{ label:"Fills", count:fills.length, content:fillsPanel },{ label:"Cash activity", count:entries.length, content:auditPanel }]}/>
-    <details className={styles.funding}><summary>Manage test cash</summary><div className={styles.fundingForms} id="test-funding">{cashForm("DEPOSIT")}{cashForm("WITHDRAWAL")}</div></details>
-    <footer className={styles.footer}>This is a simulated digital athlete collectible market. Cash, units, fees, and withdrawals have no real monetary value. Scout Values are research references, not guaranteed sale or redemption prices. Actual executable prices come from the order book. Real-money trading remains disabled. <Link href="/terms">Terms</Link> · <Link href="/risk-disclosure">Risks</Link></footer>
+    <details className={styles.funding}><summary>Add fake test cash</summary><div className={styles.fundingForms} id="test-funding">{cashForm()}<div className={styles.notice}><strong>No fake-cash withdrawals</strong><p>Fake buying power and fake trading gains stay inside the test market. They cannot be withdrawn, redeemed, or converted into provider USDC.</p></div></div></details>
+    <footer className={styles.footer}>This is a simulated digital athlete collectible market. Fake cash and collectible units have no real monetary value and cannot be withdrawn or converted to USDC. Scout Values are research references, not guaranteed sale or redemption prices. Actual executable prices come from the order book. Real-money trading remains disabled. <Link href="/terms">Terms</Link> · <Link href="/risk-disclosure">Risks</Link></footer>
   </main>;
 }

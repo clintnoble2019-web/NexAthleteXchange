@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { hasAcceptedCurrentTerms } from "@/lib/real-market-compliance";
-import { consumeRateLimit } from "@/lib/request-security";
+import { consumeRateLimit, safeReturnTo } from "@/lib/request-security";
 import { publicRequestUrl } from "@/lib/public-url";
 import { realMarketSandboxPreviewEnabled } from "@/lib/real-market";
 import { createPersonaInquiry, personaConfigured } from "@/lib/persona";
@@ -15,16 +15,24 @@ export async function POST(req: Request) {
     terms.searchParams.set("next", "/real-market/verify");
     return NextResponse.redirect(terms, 303);
   }
-  if (!personaConfigured()) return NextResponse.json({ error: "Provider-backed verification is not configured yet." }, { status: 503 });
+
+  const form = await req.formData();
+  const next = safeReturnTo(String(form.get("next") || ""), "/real-market/test");
+  const providerFunding = next === "/real-market/funding";
+  const verifyUrl = publicRequestUrl(req, "/real-market/verify");
+  verifyUrl.searchParams.set("next", next);
+  if (providerFunding) verifyUrl.searchParams.set("provider", "1");
+
+  if (!personaConfigured()) {
+    verifyUrl.searchParams.set("error", "Persona provider KYC is required but is not configured in this environment.");
+    return NextResponse.redirect(verifyUrl, 303);
+  }
   if (!(await consumeRateLimit("persona-kyc-start", user.id, 4, 300))) return NextResponse.json({ error: "Please wait before starting verification again." }, { status: 429 });
   try {
-    const returnUrl = publicRequestUrl(req, "/real-market/verify").toString();
-    const inquiry = await createPersonaInquiry(user.id, returnUrl);
+    const inquiry = await createPersonaInquiry(user.id, verifyUrl.toString());
     return NextResponse.redirect(inquiry.url, 303);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Identity verification could not be started.";
-    const url = publicRequestUrl(req, "/real-market/verify");
-    url.searchParams.set("error", message);
-    return NextResponse.redirect(url, 303);
+    verifyUrl.searchParams.set("error", error instanceof Error ? error.message : "Identity verification could not be started.");
+    return NextResponse.redirect(verifyUrl, 303);
   }
 }

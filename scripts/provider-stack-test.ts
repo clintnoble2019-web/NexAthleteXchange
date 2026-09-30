@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { verifyPersonaWebhook } from "../lib/persona";
 import { assertCircleTestnet, validSolanaAddress } from "../lib/circle-wallets";
 
@@ -25,7 +26,20 @@ try {
   process.env.CIRCLE_BLOCKCHAIN = "SOL";
   assert.throws(() => assertCircleTestnet(), /locked to SOL-DEVNET/, "mainnet must be blocked while live funds are disabled");
 
-  console.log("Provider stack security test: PASS (Persona signatures, replay window, Solana address validation, Circle mainnet lock)");
+  const providerFunding = fs.readFileSync("lib/provider-funding.ts", "utf8");
+  assert.equal(providerFunding.includes("scoutWallet"), false, "provider USDC must not read or write fake ScoutWallet cash");
+  assert.equal(providerFunding.includes("scoutCashTransfer"), false, "provider USDC must not create fake Scout cash transfers");
+  assert.match(providerFunding, /Only provider-funded Devnet USDC can be withdrawn/, "withdrawals must reject fake market cash");
+
+  const fundingPage = fs.readFileSync("app/real-market/funding/page.tsx", "utf8");
+  assert.match(fundingPage, /Fake market cash is isolated/, "funding UI must explain fake cash separation");
+  assert.match(fundingPage, /providerIdentityVerified/, "funding page must require provider-backed KYC");
+
+  const verifyPage = fs.readFileSync("app/real-market/verify/page.tsx", "utf8");
+  assert.match(verifyPage, /Complete provider KYC/, "provider funding path must prompt for KYC");
+  assert.match(verifyPage, /older administrator-approved sandbox identity is not enough/i, "legacy sandbox verification must not unlock provider funding");
+
+  console.log("Provider stack security test: PASS (Persona signatures, replay window, Solana validation, Circle mainnet lock, provider KYC gate, fake-cash isolation)");
 } finally {
   if (priorPersonaSecret === undefined) delete process.env.PERSONA_WEBHOOK_SECRET;
   else process.env.PERSONA_WEBHOOK_SECRET = priorPersonaSecret;

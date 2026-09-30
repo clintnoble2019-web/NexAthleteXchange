@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, RealFundingType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   circleConfigured,
@@ -12,6 +12,7 @@ import {
   validSolanaAddress,
 } from "@/lib/circle-wallets";
 import { screenCircleAddress } from "@/lib/circle-compliance";
+import { assertProviderIdentityVerified } from "@/lib/provider-identity";
 
 const BALANCE_SYNC_ACTION = "CIRCLE_USDC_BALANCE_SYNC";
 const ZERO = new Prisma.Decimal(0);
@@ -28,21 +29,42 @@ function hash(value: string) {
 }
 
 async function assertEligible(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { realEnrollment: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { accountFrozen: true } });
   if (!user || user.accountFrozen) throw new Error("This account cannot use Real Market funding.");
-  if (user.realEnrollment?.status !== "VERIFIED" || user.realEnrollment.environment !== "SANDBOX") throw new Error("Verified Real Market identity is required before funding.");
+  await assertProviderIdentityVerified(userId);
   if (!circleConfigured()) throw new Error("Circle USDC funding is not configured.");
 }
 
-async function lockedWallet(tx: Prisma.TransactionClient, userId: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`nex-usdc:${userId}`}))`;
-  const account = await tx.scoutWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-  if (account.environment !== "SANDBOX") throw new Error("Provider funding is restricted to the sandbox environment.");
-  return account;
+async function lockProviderFunding(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`nex-provider-usdc:${userId}`}))`;
 }
 
-async function addLedger(tx: Prisma.TransactionClient, userId: string, type: string, amount: Prisma.Decimal, balance: Prisma.Decimal, reservedAfter: Prisma.Decimal, reference: string) {
-  return tx.scoutLedgerEntry.create({ data: { userId, type, amount, balance, reservedAfter, reference } });
+async function providerAvailableBalanceTx(tx: Prisma.TransactionClient, userId: string) {
+  const [deposits, completedWithdrawals, pendingWithdrawals] = await Promise.all([
+    tx.realFundingTransaction.aggregate({
+      where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA", type: "DEPOSIT", status: "COMPLETED" },
+      _sum: { amount: true },
+    }),
+    tx.realFundingTransaction.aggregate({
+      where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA", type: "WITHDRAWAL", status: "COMPLETED" },
+      _sum: { amount: true },
+    }),
+    tx.realFundingTransaction.aggregate({
+      where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA", type: "WITHDRAWAL", status: "PENDING" },
+      _sum: { amount: true },
+    }),
+  ]);
+  const deposited = deposits._sum.amount || ZERO;
+  const withdrawn = completedWithdrawals._sum.amount || ZERO;
+  const pending = pendingWithdrawals._sum.amount || ZERO;
+  return Prisma.Decimal.max(ZERO, deposited.sub(withdrawn).sub(pending));
+}
+
+async function providerAvailableBalance(userId: string) {
+  return prisma.$transaction(async tx => {
+    await lockProviderFunding(tx, userId);
+    return providerAvailableBalanceTx(tx, userId);
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
 }
 
 export async function ensureUsdcDepositWallet(userId: string) {
@@ -55,24 +77,19 @@ export async function syncCircleUsdcDeposit(userId: string) {
   const wallet = await ensureCircleWallet(userId);
   const observed = new Prisma.Decimal(String(await getCircleUsdcBalance(wallet.walletId))).toDecimalPlaces(6);
   return prisma.$transaction(async tx => {
-    const account = await lockedWallet(tx, userId);
+    await lockProviderFunding(tx, userId);
     const last = await tx.adminAuditEvent.findFirst({ where: { targetId: userId, action: BALANCE_SYNC_ACTION }, orderBy: { createdAt: "desc" } });
     const lastDetails = (last?.details || {}) as Record<string, unknown>;
     const previous = new Prisma.Decimal(String(lastDetails.observedBalance || "0"));
     const rawDelta = observed.sub(previous);
     const credit = rawDelta.gt(0) ? rawDelta.toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN) : ZERO;
     let fundingId: string | null = null;
-    let nextBalance = account.balance;
 
     if (credit.gte("0.01")) {
-      const requestKey = `circle_dep_${hash(`${wallet.walletId}:${observed.toFixed(6)}`).slice(0, 40)}`;
-      const prior = await tx.scoutCashTransfer.findUnique({ where: { userId_requestKey: { userId, requestKey } } });
+      if (credit.gt("10000")) throw new Error("A single provider-funding sync cannot credit more than 10,000 testnet USDC.");
+      const providerRef = `circle-balance:${wallet.walletId}:${observed.toFixed(6)}`;
+      const prior = await tx.realFundingTransaction.findFirst({ where: { userId, environment: "SANDBOX", type: "DEPOSIT", rail: "USDC_SOLANA", providerRef } });
       if (!prior) {
-        const fingerprint = hash(JSON.stringify(["CIRCLE", "DEPOSIT", wallet.walletId, observed.toFixed(6), credit.toFixed(2)]));
-        await tx.scoutCashTransfer.create({ data: { userId, type: RealFundingType.DEPOSIT, amount: credit, requestKey, fingerprint } });
-        nextBalance = account.balance.add(credit);
-        if (nextBalance.gt("1000000")) throw new Error("Provider-funded sandbox cash balance exceeds the test limit.");
-        await tx.scoutWallet.update({ where: { userId }, data: { balance: nextBalance } });
         const funding = await tx.realFundingTransaction.create({
           data: {
             userId,
@@ -83,13 +100,12 @@ export async function syncCircleUsdcDeposit(userId: string) {
             amount: credit,
             asset: "USDC",
             network: wallet.blockchain,
-            providerRef: `circle-balance:${wallet.walletId}:${observed.toFixed(6)}`,
+            providerRef,
             externalAddress: wallet.address,
             completedAt: new Date(),
           },
         });
         fundingId = funding.id;
-        await addLedger(tx, userId, "USDC_PROVIDER_DEPOSIT", credit, nextBalance, account.reservedCash, funding.id);
       }
     }
 
@@ -99,12 +115,13 @@ export async function syncCircleUsdcDeposit(userId: string) {
           actorId: "circle",
           targetId: userId,
           action: BALANCE_SYNC_ACTION,
-          reason: "Observed Circle USDC deposit-wallet balance synchronized.",
-          details: { walletId: wallet.walletId, observedBalance: observed.toFixed(6), previousBalance: previous.toFixed(6), credited: credit.toFixed(2) },
+          reason: "Observed Circle USDC deposit-wallet balance synchronized without changing fake market cash.",
+          details: { walletId: wallet.walletId, observedBalance: observed.toFixed(6), previousBalance: previous.toFixed(6), creditedProviderUsdc: credit.toFixed(2) },
         },
       });
     }
-    return { observedBalance: observed.toFixed(6), credited: credit.toFixed(2), fundingId, cashBalance: nextBalance.toFixed(2) };
+    const available = await providerAvailableBalanceTx(tx, userId);
+    return { observedBalance: observed.toFixed(6), credited: credit.toFixed(2), fundingId, providerAvailable: available.toFixed(2) };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
 }
 
@@ -112,11 +129,7 @@ async function releaseWithdrawal(fundingId: string, reason: string) {
   return prisma.$transaction(async tx => {
     const funding = await tx.realFundingTransaction.findUnique({ where: { id: fundingId } });
     if (!funding || funding.status !== "PENDING" || funding.type !== "WITHDRAWAL") return funding;
-    const account = await lockedWallet(tx, funding.userId);
-    const reserved = account.reservedCash.sub(funding.amount);
-    if (reserved.lt(0)) throw new Error("Withdrawal hold does not reconcile.");
-    await tx.scoutWallet.update({ where: { userId: funding.userId }, data: { reservedCash: reserved } });
-    await addLedger(tx, funding.userId, "USDC_WITHDRAWAL_RELEASE", ZERO, account.balance, reserved, funding.id);
+    await lockProviderFunding(tx, funding.userId);
     await tx.adminAuditEvent.create({ data: { actorId: "circle", targetId: funding.userId, action: "USDC_WITHDRAWAL_RELEASED", reason, details: { fundingId: funding.id, providerRef: funding.providerRef } } });
     return tx.realFundingTransaction.update({ where: { id: funding.id }, data: { status: "FAILED", failureReason: reason } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
@@ -131,17 +144,15 @@ export async function startCircleUsdcWithdrawal(userId: string, amountInput: str
   if (!settlementWalletId) throw new Error("The Circle settlement wallet is not configured for withdrawals.");
 
   const funding = await prisma.$transaction(async tx => {
-    const account = await lockedWallet(tx, userId);
+    await lockProviderFunding(tx, userId);
     const pending = await tx.realFundingTransaction.findFirst({ where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA", type: "WITHDRAWAL", status: "PENDING" }, orderBy: { createdAt: "desc" } });
     if (pending) throw new Error("A USDC withdrawal is already pending for this account.");
-    if (account.balance.sub(account.reservedCash).lt(amount)) throw new Error("Insufficient available cash. Cancel open orders to release held funds.");
+    const available = await providerAvailableBalanceTx(tx, userId);
+    if (available.lt(amount)) throw new Error("Only provider-funded Devnet USDC can be withdrawn. Fake Real Market cash and test trading gains are never withdrawable.");
     const created = await tx.realFundingTransaction.create({
       data: { userId, environment: "SANDBOX", type: "WITHDRAWAL", rail: "USDC_SOLANA", status: "PENDING", amount, asset: "USDC", network: "SOL-DEVNET", externalAddress: destinationAddress },
     });
-    const reserved = account.reservedCash.add(amount);
-    await tx.scoutWallet.update({ where: { userId }, data: { reservedCash: reserved } });
-    await addLedger(tx, userId, "USDC_WITHDRAWAL_HOLD", ZERO, account.balance, reserved, created.id);
-    await tx.adminAuditEvent.create({ data: { actorId: userId, targetId: userId, action: "USDC_WITHDRAWAL_REQUESTED", reason: "User confirmed a compliance-screened Solana Devnet USDC withdrawal.", details: { fundingId: created.id, amount: amount.toFixed(2), destinationHash: hash(destinationAddress), network: "SOL-DEVNET" } } });
+    await tx.adminAuditEvent.create({ data: { actorId: userId, targetId: userId, action: "USDC_WITHDRAWAL_REQUESTED", reason: "User confirmed a compliance-screened Solana Devnet USDC withdrawal from provider-funded testnet balance only.", details: { fundingId: created.id, amount: amount.toFixed(2), destinationHash: hash(destinationAddress), network: "SOL-DEVNET" } } });
     return created;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
 
@@ -167,16 +178,7 @@ async function finalizeWithdrawal(fundingId: string, transaction: { id: string; 
   return prisma.$transaction(async tx => {
     const funding = await tx.realFundingTransaction.findUnique({ where: { id: fundingId } });
     if (!funding || funding.status !== "PENDING") return funding;
-    const account = await lockedWallet(tx, funding.userId);
-    if (account.reservedCash.lt(funding.amount) || account.balance.lt(funding.amount)) throw new Error("Withdrawal backing does not reconcile.");
-    const reserved = account.reservedCash.sub(funding.amount), balance = account.balance.sub(funding.amount);
-    const requestKey = `circle_wd_${hash(transaction.id).slice(0, 40)}`;
-    const prior = await tx.scoutCashTransfer.findUnique({ where: { userId_requestKey: { userId: funding.userId, requestKey } } });
-    if (!prior) {
-      await tx.scoutCashTransfer.create({ data: { userId: funding.userId, type: RealFundingType.WITHDRAWAL, amount: funding.amount, requestKey, fingerprint: hash(JSON.stringify([transaction.id, funding.amount.toFixed(2)])) } });
-      await tx.scoutWallet.update({ where: { userId: funding.userId }, data: { balance, reservedCash: reserved } });
-      await addLedger(tx, funding.userId, "USDC_PROVIDER_WITHDRAWAL", funding.amount.neg(), balance, reserved, funding.id);
-    }
+    await lockProviderFunding(tx, funding.userId);
     await tx.adminAuditEvent.create({ data: { actorId: "circle", targetId: funding.userId, action: "USDC_WITHDRAWAL_COMPLETED", reason: "Circle confirmed the Solana Devnet USDC transfer.", details: { fundingId: funding.id, transactionId: transaction.id, txHash: transaction.txHash || null } } });
     return tx.realFundingTransaction.update({ where: { id: funding.id }, data: { status: "COMPLETED", completedAt: new Date() } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 20000 });
@@ -215,7 +217,10 @@ export async function findCircleWalletOwner(walletId: string) {
 }
 
 export async function fundingStatus(userId: string) {
-  const wallet = await getCircleWalletRecord(userId);
-  const transfers = await prisma.realFundingTransaction.findMany({ where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA" }, orderBy: { createdAt: "desc" }, take: 20 });
-  return { wallet, transfers };
+  const [wallet, transfers, providerAvailable] = await Promise.all([
+    getCircleWalletRecord(userId),
+    prisma.realFundingTransaction.findMany({ where: { userId, environment: "SANDBOX", rail: "USDC_SOLANA" }, orderBy: { createdAt: "desc" }, take: 20 }),
+    providerAvailableBalance(userId),
+  ]);
+  return { wallet, transfers, providerAvailable: providerAvailable.toFixed(2) };
 }

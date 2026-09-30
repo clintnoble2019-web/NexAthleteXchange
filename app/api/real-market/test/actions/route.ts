@@ -41,8 +41,9 @@ export async function POST(req: Request) {
         return reply(`Order ${order.status.toLowerCase()}.`, false, { id: order.id, status: order.status });
       }
       case "CASH": {
-        const transfer = await transferScoutTestCash(user.id, field("type") as RealFundingType, field("amount"), field("requestKey"));
-        return reply("Fake cash action recorded. No real money moved.", false, { id: transfer.id });
+        if (field("type") !== RealFundingType.DEPOSIT) return reply("Fake Real Market cash cannot be withdrawn or converted to USDC.", true);
+        const transfer = await transferScoutTestCash(user.id, RealFundingType.DEPOSIT, field("amount"), field("requestKey"));
+        return reply("Fake test cash added. It has no withdrawal or conversion value.", false, { id: transfer.id });
       }
       case "GRANT":
         return reply("Free unit grants are disabled. Buy collectible units from the sandbox market to build a position.", true);
