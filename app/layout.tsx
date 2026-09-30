@@ -7,7 +7,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { realMarketCustomerTestEnabled } from "@/lib/real-market";
 
-export const metadata = { title: "NexAthleteXchange", description: "Scout athletes. Trade shares. Climb the leaderboard." };
+export const metadata = { title: "NexAthleteXchange", description: "Scout athletes. Build collectible positions. Trade the market." };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -19,5 +19,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       {user && realMarketCustomerTestEnabled() && <Link href="/real-market/test">Test Market</Link>}
       {user ? <form action="/api/auth/logout" method="post"><button className="secondary">Log out</button></form> : <Link href="/login">Log in</Link>}
     </div></nav><div id="main-content">{children}</div>
+    <footer className="shell" style={{paddingTop: 32, paddingBottom: 32}}><p className="muted"><Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/risk-disclosure">Real Market Risks</Link></p></footer>
   </body></html>;
 }
