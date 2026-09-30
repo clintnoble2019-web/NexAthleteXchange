@@ -36,10 +36,16 @@ function positiveInt(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function sportFromParam(value: string | undefined) {
+  if (value === "MLB") return Sport.MLB;
+  if (value === "NFL") return Sport.NFL;
+  return Sport.NBA;
+}
+
 export default async function Market({ searchParams }: { searchParams: Promise<MarketSearchParams> }) {
   const params = await searchParams;
-  const sport = first(params.sport) === "MLB" ? Sport.MLB : Sport.NBA;
-  const sportName = sport === Sport.NBA ? "NBA" : "MLB";
+  const sport = sportFromParam(first(params.sport));
+  const sportName = String(sport);
   const team = first(params.team)?.trim().toUpperCase() || "";
   const q = first(params.q)?.trim().slice(0, 80) || "";
   const position = first(params.position)?.trim().slice(0, 20) || "";
@@ -121,7 +127,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
   return <main className="shell">
     <div className="hero">
       <div>
-        <p className="muted">FREE MARKET • NBA + MLB</p>
+        <p className="muted">FREE MARKET • NBA + NFL + MLB</p>
         <h1>{sportName} Athlete Market</h1>
         <p className="muted">Trade athlete shares with NexPoints. Fractional shares start at 0.01.</p>
       </div>
@@ -133,6 +139,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
 
     <div className="sportTabs" aria-label="Launch sports">
       <Link className={sport === Sport.NBA ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NBA", team: "", position: "", page: 1 })}>NBA</Link>
+      <Link className={sport === Sport.NFL ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NFL", team: "", position: "", page: 1 })}>NFL</Link>
       <Link className={sport === Sport.MLB ? "sportTab active" : "sportTab"} href={marketHref({ sport: "MLB", team: "", position: "", page: 1 })}>MLB</Link>
     </div>
 
