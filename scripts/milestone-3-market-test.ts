@@ -10,6 +10,17 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+function renderedText(html: string) {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", "\"")
+    .replaceAll("&#x27;", "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function get(path: string, cookie?: string) {
   return fetch(`${baseUrl}${path}`, { headers: cookie ? { cookie } : undefined, redirect: "manual" });
 }
@@ -51,62 +62,63 @@ async function main() {
     const defaultPage = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}`);
     assert(defaultPage.status === 200, `NBA filtered market expected 200, got ${defaultPage.status}`);
     const defaultHtml = await defaultPage.text();
-    assert(defaultHtml.includes("30 players"), "Filtered market did not report 30 QA players");
-    assert(defaultHtml.includes("Showing 1–25"), "Default market page size is not 25");
-    assert(defaultHtml.includes(`${prefix} Player 29`), "Default performance sort did not include top QA player");
-    assert(!defaultHtml.includes(`${prefix} Player 00`), "Default first page leaked a second-page QA player");
-    assert(defaultHtml.includes("Next →"), "Pagination next control missing");
+    const defaultText = renderedText(defaultHtml);
+    assert(defaultText.includes("30 players"), "Filtered market did not report 30 QA players");
+    assert(defaultText.includes("Showing 1–25"), "Default market page size is not 25");
+    assert(defaultText.includes(`${prefix} Player 29`), "Default performance sort did not include top QA player");
+    assert(!defaultText.includes(`${prefix} Player 00`), "Default first page leaked a second-page QA player");
+    assert(defaultText.includes("Next →"), "Pagination next control missing");
 
     const secondPage = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}&sort=name&perPage=25&page=2`);
-    const secondHtml = await secondPage.text();
+    const secondText = renderedText(await secondPage.text());
     assert(secondPage.status === 200, "Second market page expected 200");
-    assert(secondHtml.includes("Page <strong>2</strong> of <strong>2</strong>"), "Page 2 status missing");
-    assert(secondHtml.includes(`${prefix} Player 25`), "Second page missing expected player");
-    assert(!secondHtml.includes(`${prefix} Player 00`), "Second page included first-page player");
+    assert(secondText.includes("Page 2 of 2"), "Page 2 status missing");
+    assert(secondText.includes(`${prefix} Player 25`), "Second page missing expected player");
+    assert(!secondText.includes(`${prefix} Player 00`), "Second page included first-page player");
 
     const clampedPage = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}&sort=name&perPage=25&page=999`);
-    const clampedHtml = await clampedPage.text();
-    assert(clampedHtml.includes("Page <strong>2</strong> of <strong>2</strong>"), "Out-of-range page was not clamped");
+    const clampedText = renderedText(await clampedPage.text());
+    assert(clampedText.includes("Page 2 of 2"), "Out-of-range page was not clamped");
 
     const search = await get(`/market?sport=NBA&q=${encodeURIComponent(`${prefix} Player 07`)}`);
-    const searchHtml = await search.text();
-    assert(searchHtml.includes(`${prefix} Player 07`), "Player search missed exact QA player");
-    assert(!searchHtml.includes(`${prefix} Player 08`), "Player search returned unrelated QA player");
+    const searchText = renderedText(await search.text());
+    assert(searchText.includes(`${prefix} Player 07`), "Player search missed exact QA player");
+    assert(!searchText.includes(`${prefix} Player 08`), "Player search returned unrelated QA player");
 
     const team = await get(`/market?sport=NBA&team=DEN&q=${encodeURIComponent(prefix)}&sort=name&perPage=100`);
-    const teamHtml = await team.text();
-    assert(teamHtml.includes(`${prefix} Player 00`), "Team filter missed DEN QA player");
-    assert(!teamHtml.includes(`${prefix} Player 01`), "Team filter included BOS QA player");
+    const teamText = renderedText(await team.text());
+    assert(teamText.includes(`${prefix} Player 00`), "Team filter missed DEN QA player");
+    assert(!teamText.includes(`${prefix} Player 01`), "Team filter included BOS QA player");
 
     const position = await get(`/market?sport=NBA&position=F&q=${encodeURIComponent(prefix)}&sort=name&perPage=100`);
-    const positionHtml = await position.text();
-    assert(positionHtml.includes(`${prefix} Player 01`), "Position filter missed F QA player");
-    assert(!positionHtml.includes(`${prefix} Player 00`), "Position filter included G QA player");
+    const positionText = renderedText(await position.text());
+    assert(positionText.includes(`${prefix} Player 01`), "Position filter missed F QA player");
+    assert(!positionText.includes(`${prefix} Player 00`), "Position filter included G QA player");
 
     const priceDesc = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}&sort=price_desc&perPage=100`);
-    const priceDescHtml = await priceDesc.text();
-    assert(priceDescHtml.indexOf(`${prefix} Player 29`) < priceDescHtml.indexOf(`${prefix} Player 28`), "Highest-price sort order is incorrect");
+    const priceDescText = renderedText(await priceDesc.text());
+    assert(priceDescText.indexOf(`${prefix} Player 29`) < priceDescText.indexOf(`${prefix} Player 28`), "Highest-price sort order is incorrect");
 
     const priceAsc = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}&sort=price_asc&perPage=100`);
-    const priceAscHtml = await priceAsc.text();
-    assert(priceAscHtml.indexOf(`${prefix} Player 00`) < priceAscHtml.indexOf(`${prefix} Player 01`), "Lowest-price sort order is incorrect");
+    const priceAscText = renderedText(await priceAsc.text());
+    assert(priceAscText.indexOf(`${prefix} Player 00`) < priceAscText.indexOf(`${prefix} Player 01`), "Lowest-price sort order is incorrect");
 
     const nameSort = await get(`/market?sport=NBA&q=${encodeURIComponent(prefix)}&sort=name&perPage=100`);
-    const nameSortHtml = await nameSort.text();
-    assert(nameSortHtml.indexOf(`${prefix} Player 00`) < nameSortHtml.indexOf(`${prefix} Player 01`), "A-Z sort order is incorrect");
+    const nameSortText = renderedText(await nameSort.text());
+    assert(nameSortText.indexOf(`${prefix} Player 00`) < nameSortText.indexOf(`${prefix} Player 01`), "A-Z sort order is incorrect");
 
     const empty = await get(`/market?sport=NBA&q=${encodeURIComponent(`missing-${unique}`)}`);
-    const emptyHtml = await empty.text();
-    assert(emptyHtml.includes("No players match these filters."), "Empty-filter state missing");
+    const emptyText = renderedText(await empty.text());
+    assert(emptyText.includes("No players match these filters."), "Empty-filter state missing");
 
     const mlbSearch = await get("/market?sport=MLB&q=Shohei");
-    const mlbSearchHtml = await mlbSearch.text();
-    assert(mlbSearchHtml.includes("Shohei Ohtani"), "MLB search did not find Shohei Ohtani");
+    const mlbSearchText = renderedText(await mlbSearch.text());
+    assert(mlbSearchText.includes("Shohei Ohtani"), "MLB search did not find Shohei Ohtani");
 
     const mlbTeam = await get("/market?sport=MLB&team=LAD");
-    const mlbTeamHtml = await mlbTeam.text();
-    assert(mlbTeamHtml.includes("Shohei Ohtani"), "MLB team filter missed Dodgers player");
-    assert(!mlbTeamHtml.includes("Aaron Judge"), "MLB team filter included Yankees player");
+    const mlbTeamText = renderedText(await mlbTeam.text());
+    assert(mlbTeamText.includes("Shohei Ohtani"), "MLB team filter missed Dodgers player");
+    assert(!mlbTeamText.includes("Aaron Judge"), "MLB team filter included Yankees player");
 
     const preserved = await get(`/market?sport=NBA&team=DEN&q=${encodeURIComponent(prefix)}&position=G&sort=name&perPage=25`, cookie);
     const preservedHtml = await preserved.text();
