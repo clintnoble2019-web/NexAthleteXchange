@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
+import { startOfCurrentWeekUtc } from "@/lib/competition";
 
 const STARTING_NEXPOINTS = 5000;
 const schema = z.object({ username: z.string().min(3).max(24), email: z.string().email(), password: z.string().min(8).max(128) });
@@ -15,9 +16,11 @@ export async function POST(req: Request) {
   const exists = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
   if (exists) return new NextResponse("Email or username already exists", { status: 409 });
   const passwordHash = await bcrypt.hash(password, 12);
+  const weekStart = startOfCurrentWeekUtc();
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({ data: { email, username, passwordHash, wallet: { create: { balance: STARTING_NEXPOINTS } } } });
     await tx.ledgerEntry.create({ data: { userId: created.id, type: "SIGNUP_CREDIT", amount: STARTING_NEXPOINTS, balance: STARTING_NEXPOINTS, reference: "initial-nexpoints-bankroll" } });
+    await tx.weeklyPortfolioBaseline.create({ data: { userId: created.id, weekStart, startValue: STARTING_NEXPOINTS } });
     return created;
   });
   await createSession(user.id);
