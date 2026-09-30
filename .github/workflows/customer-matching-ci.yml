@@ -3,7 +3,7 @@ on:
   push:
     branches: [real-market-customer-matching]
   pull_request:
-    branches: [foundation-4-beta-controls, main]
+    branches: [foundation-4-beta-controls, real-market-customer-matching, main]
 permissions:
   contents: read
 jobs:
