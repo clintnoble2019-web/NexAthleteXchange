@@ -9,6 +9,10 @@ async function postForm(path, data, cookie) {
   if (cookie) headers.cookie = cookie;
   return fetch(`${baseUrl}${path}`, { method: "POST", headers, body: new URLSearchParams(data), redirect: "manual" });
 }
+function assertTradeError(response, label) {
+  assert(response.status === 303, `${label} expected safe redirect 303, got ${response.status}`);
+  assert((response.headers.get("location") || "").includes("tradeError="), `${label} redirect did not include trade error feedback`);
+}
 
 const unique = Date.now();
 const email = `qa-${unique}@nexathletexchange.test`;
@@ -33,20 +37,22 @@ try {
   assert(athleteMatch, "Could not find a tradeable NBA athlete in the market");
   const athleteId = athleteMatch[1];
   const tooSmall = await postForm("/api/trade", { athleteId, side: "BUY", quantity: "0.0001", returnTo: "/market" }, cookie);
-  assert(tooSmall.status === 400, `Sub-minimum trade expected 400, got ${tooSmall.status}`);
+  assertTradeError(tooSmall, "Sub-minimum trade");
   const overspend = await postForm("/api/trade", { athleteId, side: "BUY", quantity: "1000000", returnTo: "/market" }, cookie);
-  assert(overspend.status === 400, `Overspend expected 400, got ${overspend.status}`);
+  assertTradeError(overspend, "Overspend");
   const buy = await postForm("/api/trade", { athleteId, side: "BUY", quantity: "1", returnTo: "/portfolio" }, cookie);
   assert(buy.status === 303, `Buy expected 303, got ${buy.status}`);
+  assert((buy.headers.get("location") || "").includes("trade=BUY"), "Buy redirect did not include success status");
   const portfolioAfterBuy = await fetch(`${baseUrl}/portfolio`, { headers: { cookie } });
   const portfolioHtml = await portfolioAfterBuy.text();
   assert(portfolioAfterBuy.status === 200, `Portfolio expected 200, got ${portfolioAfterBuy.status}`);
   assert(!portfolioHtml.includes("No holdings yet"), "Purchased athlete did not appear in portfolio");
   assert(portfolioHtml.includes("Unrealized P/L"), "Portfolio did not render P/L");
   const oversell = await postForm("/api/trade", { athleteId, side: "SELL", quantity: "2", returnTo: "/portfolio" }, cookie);
-  assert(oversell.status === 400, `Oversell expected 400, got ${oversell.status}`);
+  assertTradeError(oversell, "Oversell");
   const sell = await postForm("/api/trade", { athleteId, side: "SELL", quantity: "1", returnTo: "/portfolio" }, cookie);
   assert(sell.status === 303, `Sell expected 303, got ${sell.status}`);
+  assert((sell.headers.get("location") || "").includes("trade=SELL"), "Sell redirect did not include success status");
 
   const user = await prisma.user.findUnique({ where: { email }, include: { wallet: true, positions: true, trades: true, ledger: true } });
   assert(user, "QA user not found in database");
