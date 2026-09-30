@@ -100,27 +100,28 @@ async function updateSport(sport: LaunchSport, season: number) {
     return [{ athlete, nextPrice, performance, targetPrice }];
   });
 
+  // Use Prisma's batch transaction API so hosted Postgres latency cannot expire
+  // a callback-style interactive transaction while repricing a full roster.
   for (let i = 0; i < assignments.length; i += 40) {
     const chunk = assignments.slice(i, i + 40);
-    await prisma.$transaction(async (tx) => {
-      for (const assignment of chunk) {
-        await tx.athlete.update({
-          where: { id: assignment.athlete.id },
-          data: {
-            previousPrice: assignment.athlete.currentPrice,
-            currentPrice: assignment.nextPrice,
-            performance: assignment.performance,
-          },
-        });
-        await tx.priceSnapshot.create({
-          data: {
-            athleteId: assignment.athlete.id,
-            price: assignment.nextPrice,
-            source,
-          },
-        });
-      }
-    });
+    const operations = chunk.flatMap((assignment) => [
+      prisma.athlete.update({
+        where: { id: assignment.athlete.id },
+        data: {
+          previousPrice: assignment.athlete.currentPrice,
+          currentPrice: assignment.nextPrice,
+          performance: assignment.performance,
+        },
+      }),
+      prisma.priceSnapshot.create({
+        data: {
+          athleteId: assignment.athlete.id,
+          price: assignment.nextPrice,
+          source,
+        },
+      }),
+    ]);
+    await prisma.$transaction(operations);
   }
 
   const noStats = athletes.length - percentileByAthleteId.size;
