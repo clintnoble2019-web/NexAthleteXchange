@@ -8,6 +8,12 @@ Create account → receive **N⟡5,000 NexPoints** → browse NBA/MLB teams and 
 
 NexPoints are virtual points with no real-money value.
 
+## Planned Real Market: the scouting economy
+
+**A market built on scouting conviction.** The planned first stage connects funded buyers and sellers of athlete positions. Performance data informs scouting and reference valuation; matching customer orders determine execution prices. Selling requires an available buyer. Actual trading data can support a later evaluation of professional liquidity providers, while net fee income can support company reserves and development.
+
+Real Market remains coming soon. The public copy describes the plan, not a working customer order book: current internal flows are reference-price and LP simulators, and live funds remain disabled. The current product decisions, earnings-retention policy, retirement-policy gaps, and implementation requirements are in [docs/REAL_MARKET_LAUNCH_MODEL.md](docs/REAL_MARKET_LAUNCH_MODEL.md).
+
 ## Stack
 
 - Next.js + TypeScript

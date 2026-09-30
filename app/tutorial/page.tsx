@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "How to Play — NexAthleteXchange",
-  description: "Learn how scouting, athlete shares, NexPoints, live pricing, Market Cap, Watchlists, and weekly competition work.",
+  title: "How to Play the Free Market — NexAthleteXchange",
+  description: "Learn the NexPoints scouting game and how the planned Real Market will match funded orders between scouts.",
 };
 
 const steps = [
@@ -18,7 +18,7 @@ const steps = [
 export default function TutorialPage() {
   return <main className="shell tutorialPage">
     <section className="tutorialHero">
-      <span className="landingEyebrow">NEXATHLETEXCHANGE TUTORIAL</span>
+      <span className="landingEyebrow">FREE MARKET TUTORIAL</span>
       <h1>Scout smarter. Build your portfolio. Prove your eye.</h1>
       <p className="landingLead">NexAthleteXchange is a free sports-market game built around one question: can you identify player value before everyone else does?</p>
       <div className="landingActions"><Link className="button landingPrimary" href="/signup">Start with N⟡5,000</Link><Link className="button secondary" href="/market">Open the market</Link></div>
@@ -69,6 +69,15 @@ export default function TutorialPage() {
     <section className="landingCta tutorialFinish">
       <div><span className="landingEyebrow">YOU'RE READY</span><h2>Now go find somebody the market is sleeping on.</h2><p className="muted">Scout. Buy. Watch the games. Adjust. Climb.</p></div>
       <div className="landingActions"><Link className="button landingPrimary" href="/discover">Start scouting</Link><Link className="button secondary" href="/market">Browse all players</Link></div>
+    </section>
+
+    <section className="tutorialSection">
+      <div className="landingSectionHead"><span className="landingEyebrow">REAL MARKET • COMING SOON</span><h2>Same scouting eye. A different way to trade.</h2></div>
+      <div className="landingTwoUp">
+        <article className="card landingExplain"><h3>Practice in the Free Market</h3><p>NexPoints trades are simulated at prices supplied by the performance engine. You do not need another trader to take the other side, and NexPoints have no real-money value.</p></article>
+        <article className="card landingExplain"><h3>Trade with other scouts</h3><p>The planned Real Market uses funded buy orders and sell orders backed by owned positions. Performance provides a research reference; a matching buyer and seller determine the execution price. An order can wait or remain unfilled.</p></article>
+      </div>
+      <p className="muted">Real-money deposits, trading, and withdrawals remain disabled. <Link href="/real-market">Explore the Real Market plan.</Link></p>
     </section>
   </main>;
 }

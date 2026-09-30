@@ -3,6 +3,8 @@
 Status: Sandbox design
 Live funds: Disabled
 
+Current launch direction: [The Scouting Economy](REAL_MARKET_LAUNCH_MODEL.md). The first stage is planned around matching funded customer orders; LP quoting is a possible later stage. Reference-price retirement/redemption rules below describe existing sandbox behavior and are not approved live payout promises.
+
 ## 1. Launch universe
 
 The Real Market launches with exactly 60 athlete instruments:
@@ -19,7 +21,7 @@ Real Market eligibility requires an active athlete, reliable provider coverage, 
 
 A Real Market athlete position is a persistent position tied to one athlete. It is not a one-game proposition and does not automatically expire after a game. A holder keeps the position until it is sold or the instrument is retired under the lifecycle rules below.
 
-The NexAthleteXchange performance engine produces the reference price. Customer trading volume does not directly set that reference price. Liquidity providers quote bids and asks around the reference price.
+The NexAthleteXchange performance engine produces the reference price. Customer trading volume does not directly set that reference price. In the planned first stage, customer buy and sell orders determine executable prices. The reference price is a scouting guide, not a guaranteed exit value. Sandbox liquidity providers quote bids and asks around the reference price as a prototype for a possible later stage.
 
 ## 3. Reference pricing and LP quotes
 
@@ -32,7 +34,7 @@ Each instrument has:
 - ask depth
 - instrument status
 
-The reference price is updated from the NexAthleteXchange performance engine while an instrument is ACTIVE. LP quotes are constrained by contractual spread, depth, exposure, and uptime limits.
+The reference price is updated from the NexAthleteXchange performance engine while an instrument is ACTIVE. A live first-stage execution will require a funded buyer and an inventory-backed seller; customer matching is not yet implemented. In the LP sandbox, quotes are constrained by spread, depth, exposure, and uptime limits.
 
 LP maker fee target: $0.00.
 Retail execution fee: $2.00 per executed buy or sell.
@@ -45,7 +47,9 @@ Retail execution fee: $2.00 per executed buy or sell.
 - SETTLED — settlement processing completed if an intermediate operational state is required.
 - RETIRED — instrument permanently removed from active Real Market trading.
 
-## 5. Career-ending injury / injury-forced retirement
+## 5. Existing sandbox career-ending injury / injury-forced retirement
+
+The following simulator lifecycle must be reviewed against the new launch model. Do not market a guaranteed reference-price exit or seven-day redemption until final terms and sufficient independent payout backing are approved.
 
 A career-ending trigger must be based on a pre-approved objective source such as an official league/team announcement or confirmed athlete retirement announcement. Rumors and social-media speculation are not sufficient.
 
@@ -99,7 +103,7 @@ Real Market target after replacement remains:
 
 ## 9. Settlement reserve
 
-NexAthleteXchange maintains a separate retirement settlement reserve. The reserve exists to prevent an LP from carrying unlimited forced-redemption liability after a career-ending event.
+The existing simulator maintains a separate sandbox retirement settlement reserve. It models funding compulsory redemptions without assigning them to an LP. No live reserve or live payout guarantee is established by these records.
 
 Sandbox settlement fails closed if the reserve cannot cover all outstanding positions. Production must have reserve monitoring, alerting, minimum capitalization rules, and documented funding policy before LIVE activation.
 

@@ -80,5 +80,15 @@ export default async function Home() {
         <Link className="button secondary" href="/tutorial">Read the tutorial</Link>
       </div>
     </section>
+
+    <section className="landingSection shell">
+      <div className="card landingExplain">
+        <span className="landingEyebrow">REAL MARKET • COMING SOON</span>
+        <h2>The next chapter of the scouting economy.</h2>
+        <p>Build athlete positions and trade with other scouts. The planned Real Market matches funded buy and sell orders, with performance research guiding your decisions. Every sale needs a matching buyer.</p>
+        <p className="muted">Real-money trading is not live. Keep developing your scouting eye in the Free Market today.</p>
+        <Link className="button secondary" href="/real-market">Explore the Real Market plan</Link>
+      </div>
+    </section>
   </main>;
 }

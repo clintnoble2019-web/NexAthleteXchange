@@ -20,7 +20,7 @@ try {
   const athlete = await prisma.athlete.findFirstOrThrow({ where: { active: true, marketEnabled: true } });
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of ["/market", "/portfolio", "/admin", "/real-market/verify", "/athletes/" + athlete.slug]) {
+    for (const route of ["/", "/tutorial", "/real-market", "/market", "/portfolio", "/admin", "/real-market/verify", "/athletes/" + athlete.slug]) {
       const response = await page.goto(base + route);
       if (response?.status() !== 200) throw new Error("Could not load " + route);
       await page.locator("main h1").waitFor({ state: "visible" });

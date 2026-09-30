@@ -4,6 +4,8 @@ Status: Foundation architecture
 Environment: Sandbox only
 Live funds: Disabled
 
+Current launch direction: [The Scouting Economy](REAL_MARKET_LAUNCH_MODEL.md). First-stage trading is planned to match funded customer orders, with professional liquidity considered later. This document describes the existing simulator foundation; customer order matching is not implemented. Its reference-price fills and retirement redemptions are not live product promises.
+
 ## 1. Product boundary
 
 The Real Market is a separate money layer beside the existing NexPoints Free Market. It reuses the same athlete catalog and performance-driven reference prices, but it must never share balances, positions, trades, or ledger entries with the Free Market.
@@ -17,7 +19,7 @@ The first implementation is deliberately sandbox-only. It can model deposits, wi
 3. Every Real Market record is tagged with an environment (`SANDBOX` or `LIVE`).
 4. Current code may create only `SANDBOX` records.
 5. `liveFundsEnabled` remains hard-coded `false` until a future launch change is deliberately reviewed.
-6. Real Market trades do not directly change athlete reference prices. Prices continue to come from the performance engine.
+6. Real Market trades do not directly change athlete reference prices. Reference values continue to come from the performance engine; future customer execution prices come from matching orders.
 7. Every completed cash movement produces an immutable ledger record.
 8. Every executed Real Market trade records the flat platform fee independently from gross trade value.
 9. Debit cards are a planned deposit rail only. Withdrawals are limited to bank or USDC on Solana.
@@ -139,7 +141,7 @@ A later integration can replace the simulator with a wallet/custody/on-ramp prov
 
 ### Buy
 
-Given athlete price `P`, quantity `Q`, and flat fee `F = $2`:
+The existing reference-price simulator uses athlete reference price `P`, quantity `Q`, and flat fee `F = $2`. Future customer matching uses the actual execution price and requires a funded counterparty; a reference quote alone cannot execute a live trade.
 
 - gross = `P × Q`
 - cash debit = `gross + F`
@@ -210,7 +212,8 @@ Before any LIVE record or real customer money is enabled, the product should hav
 - deposit/withdrawal reconciliation
 - transaction monitoring and audit exports
 - fraud and chargeback controls
-- liquidity provider and exposure limits
+- funded customer order matching, backing holds, and exposure limits; provider agreements and controls if professional liquidity is added later
+- finalized initial position issuance and retirement/redemption rules with funded coverage for any promised payouts
 - incident response and account freeze tooling
 - customer disclosures and terms
 - production monitoring and alerting
