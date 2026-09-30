@@ -87,6 +87,7 @@ model Athlete {
   currentPrice   Decimal         @db.Decimal(18, 2)
   previousPrice  Decimal         @db.Decimal(18, 2)
   performance    Int             @default(50)
+  marketCap      Decimal         @default(0) @db.Decimal(18, 2)
   active         Boolean         @default(true)
   marketEnabled  Boolean         @default(true)
   createdAt      DateTime        @default(now())
@@ -94,7 +95,9 @@ model Athlete {
   positions      Position[]
   trades         Trade[]
   priceHistory   PriceSnapshot[]
+  performanceValues PerformanceValueEvent[]
   @@index([sport, active, marketEnabled])
+  @@index([sport, marketCap])
 }
 
 model Position {
@@ -146,4 +149,18 @@ model PriceSnapshot {
   createdAt DateTime @default(now())
   athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
   @@index([athleteId, createdAt])
+}
+
+model PerformanceValueEvent {
+  id        String   @id @default(cuid())
+  athleteId String
+  sport     Sport
+  gameId    Int
+  value     Decimal  @db.Decimal(18, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  @@unique([athleteId, gameId])
+  @@index([athleteId, createdAt])
+  @@index([sport, gameId])
 }
