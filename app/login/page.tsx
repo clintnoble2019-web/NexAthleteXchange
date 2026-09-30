@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function Login(){return <main className="shell"><section className="card form"><h1>Welcome back</h1><form action="/api/auth/login" method="post"><input name="email" type="email" placeholder="Email" required/><input name="password" type="password" placeholder="Password" required/><button type="submit">Log in</button></form><p className="muted">New here? <Link href="/signup">Create account</Link></p></section></main>}
