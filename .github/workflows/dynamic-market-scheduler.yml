@@ -10,6 +10,7 @@ on:
     - cron: "*/5 * * * *"
     - cron: "17 10 * * *"
     - cron: "37 9 * * 2"
+    - cron: "5 0 * * 1"
   workflow_dispatch:
     inputs:
       mode:
@@ -21,6 +22,7 @@ on:
           - live
           - baseline
           - rosters
+          - weekly
 
 permissions:
   contents: read
@@ -53,7 +55,7 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         uses: actions/checkout@v4
         with:
-          ref: milestone-4-live-repricing
+          ref: main
 
       - name: Setup Node
         if: steps.secrets.outputs.ready == 'true'
@@ -83,6 +85,8 @@ jobs:
             MODE="baseline"
           elif [ "${{ github.event.schedule }}" = "37 9 * * 2" ]; then
             MODE="rosters"
+          elif [ "${{ github.event.schedule }}" = "5 0 * * 1" ]; then
+            MODE="weekly"
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Running $MODE market update"
@@ -100,3 +104,7 @@ jobs:
       - name: Refresh daily season baseline
         if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'baseline'
         run: npm run update:market
+
+      - name: Snapshot weekly scout leaderboard
+        if: steps.secrets.outputs.ready == 'true' && steps.mode.outputs.mode == 'weekly'
+        run: npm run snapshot:weekly
