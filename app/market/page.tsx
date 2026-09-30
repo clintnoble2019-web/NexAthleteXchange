@@ -13,6 +13,8 @@ type MarketSearchParams = {
   sort?: Param;
   page?: Param;
   perPage?: Param;
+  trade?: Param;
+  tradeError?: Param;
 };
 
 type SortKey = "performance" | "price_desc" | "price_asc" | "name";
@@ -45,6 +47,8 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
   const requestedPerPage = positiveInt(first(params.perPage), 25);
   const perPage = [25, 50, 100].includes(requestedPerPage) ? requestedPerPage : 25;
   const requestedPage = positiveInt(first(params.page), 1);
+  const trade = first(params.trade);
+  const tradeError = first(params.tradeError);
 
   const where: Prisma.AthleteWhereInput = {
     sport,
@@ -123,6 +127,9 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
       {user ? <div><span className="muted">NexPoints balance</span><h2>{formatNexPoints(Number(user.wallet?.balance || 0))}</h2></div> : <Link className="button" href="/signup">Start with {NEXPOINTS_SYMBOL}5,000</Link>}
     </div>
 
+    {trade && <div className="notice successNotice">{trade === "SELL" ? "Sale completed." : "Purchase completed."} Your NexPoints balance and portfolio have been updated.</div>}
+    {tradeError && <div className="notice errorNotice">{tradeError}</div>}
+
     <div className="sportTabs" aria-label="Launch sports">
       <Link className={sport === Sport.NBA ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NBA", team: "", position: "", page: 1 })}>NBA</Link>
       <Link className={sport === Sport.MLB ? "sportTab active" : "sportTab"} href={marketHref({ sport: "MLB", team: "", position: "", page: 1 })}>MLB</Link>
@@ -170,7 +177,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
               <input type="hidden" name="athleteId" value={athlete.id}/>
               <input type="hidden" name="side" value="BUY"/>
               <input type="hidden" name="returnTo" value={returnTo}/>
-              <input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1"/>
+              <input aria-label={`Buy ${athlete.name} units`} name="quantity" type="number" min="0.01" step="0.01" defaultValue="1"/>
               <button>Buy</button>
             </form> : <Link className="button" href="/login">Log in</Link>}</td>
           </tr>;
