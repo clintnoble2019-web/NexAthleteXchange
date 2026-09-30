@@ -18,10 +18,10 @@ type MarketSearchParams = {
   tradeError?: Param;
 };
 
-type SortKey = "performance" | "price_desc" | "price_asc" | "name";
+type SortKey = "market_cap" | "price_desc" | "price_asc" | "name";
 
 const SORTS: Record<SortKey, string> = {
-  performance: "Top Performance",
+  market_cap: "Highest Market Cap",
   price_desc: "Highest Price",
   price_asc: "Lowest Price",
   name: "A–Z",
@@ -44,7 +44,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
   const q = first(params.q)?.trim().slice(0, 80) || "";
   const position = first(params.position)?.trim().slice(0, 20) || "";
   const requestedSort = first(params.sort) as SortKey | undefined;
-  const sort: SortKey = requestedSort && requestedSort in SORTS ? requestedSort : "performance";
+  const sort: SortKey = requestedSort && requestedSort in SORTS ? requestedSort : "market_cap";
   const requestedPerPage = positiveInt(first(params.perPage), 25);
   const perPage = [25, 50, 100].includes(requestedPerPage) ? requestedPerPage : 25;
   const requestedPage = positiveInt(first(params.page), 1);
@@ -86,7 +86,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
     sort === "price_desc" ? [{ currentPrice: "desc" }, { name: "asc" }] :
     sort === "price_asc" ? [{ currentPrice: "asc" }, { name: "asc" }] :
     sort === "name" ? [{ name: "asc" }] :
-    [{ performance: "desc" }, { currentPrice: "desc" }, { name: "asc" }];
+    [{ marketCap: "desc" }, { currentPrice: "desc" }, { name: "asc" }];
 
   const athletes = await prisma.athlete.findMany({
     where,
@@ -163,7 +163,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
 
     <section className="card marketCard">
       <table className="market">
-        <thead><tr><th>Player</th><th>Team</th><th>Price / share</th><th>Move</th><th className="hide-mobile">Score</th><th>Trade</th></tr></thead>
+        <thead><tr><th>Player</th><th>Team</th><th>Price / share</th><th>Move</th><th className="hide-mobile">Market Cap</th><th>Trade</th></tr></thead>
         <tbody>{athletes.map((athlete) => {
           const current = Number(athlete.currentPrice);
           const previous = Number(athlete.previousPrice);
@@ -173,7 +173,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
             <td>{athlete.team}</td>
             <td className="price">{formatNexPoints(current)}</td>
             <td className={move >= 0 ? "positive" : "negative"}>{move >= 0 ? "+" : ""}{move.toFixed(2)}%</td>
-            <td className="hide-mobile">{athlete.performance}</td>
+            <td className="hide-mobile">{formatNexPoints(Number(athlete.marketCap))}</td>
             <td>{user ? <ShareTradeForm athleteId={athlete.id} athleteName={athlete.name} side="BUY" price={current} returnTo={returnTo} compact/> : <Link className="button" href="/login">Log in</Link>}</td>
           </tr>;
         })}</tbody>
