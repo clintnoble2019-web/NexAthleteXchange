@@ -5,7 +5,7 @@ import { realMarketCustomerTestEnabled } from "@/lib/real-market";
 import { publicRequestUrl } from "@/lib/public-url";
 import { publicError } from "@/lib/public-error";
 import { consumeRateLimit } from "@/lib/request-security";
-import { cancelScoutOrder, claimScoutTestInventory, placeScoutOrder, transferScoutTestCash } from "@/lib/scout-market";
+import { cancelScoutOrder, placeScoutOrder, transferScoutTestCash } from "@/lib/scout-market";
 
 export async function POST(req: Request) {
   if (!realMarketCustomerTestEnabled()) return NextResponse.json({ error: "Customer test market is unavailable." }, { status: 404 });
@@ -29,10 +29,20 @@ export async function POST(req: Request) {
         const order = await placeScoutOrder({ userId: user.id, athleteId, side: field("side") as TradeSide, price: field("price"), quantity: field("quantity"), requestKey: field("requestKey") });
         return reply(`Order ${order.status.toLowerCase()}. Unfilled quantity: ${Number(order.remaining).toFixed(2)}.`, false, { id: order.id, status: order.status });
       }
-      case "CANCEL": { const order = await cancelScoutOrder(user.id, field("orderId")); return reply(`Order ${order.status.toLowerCase()}.`, false, { id: order.id, status: order.status }); }
-      case "CASH": { const transfer = await transferScoutTestCash(user.id, field("type") as RealFundingType, field("amount"), field("requestKey")); return reply("Fake cash action recorded. No real money moved.", false, { id: transfer.id }); }
-      case "GRANT": { const grant = await claimScoutTestInventory(user.id, athleteId); return reply("One-time allocation: 10 fake shares. This is test inventory only.", false, { id: grant.id }); }
-      default: return reply("Choose a valid test action.", true);
+      case "CANCEL": {
+        const order = await cancelScoutOrder(user.id, field("orderId"));
+        return reply(`Order ${order.status.toLowerCase()}.`, false, { id: order.id, status: order.status });
+      }
+      case "CASH": {
+        const transfer = await transferScoutTestCash(user.id, field("type") as RealFundingType, field("amount"), field("requestKey"));
+        return reply("Fake cash action recorded. No real money moved.", false, { id: transfer.id });
+      }
+      case "GRANT":
+        return reply("Free share grants are disabled. Buy shares from the sandbox market to build a position.", true);
+      default:
+        return reply("Choose a valid test action.", true);
     }
-  } catch (error) { return reply(publicError(error, "The test action could not be completed."), true); }
+  } catch (error) {
+    return reply(publicError(error, "The test action could not be completed."), true);
+  }
 }
