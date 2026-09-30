@@ -22,7 +22,7 @@ This checklist records the conservative production controls NexAthleteXchange is
 - [x] Real Market Risk Disclosure page.
 - [x] Privacy Notice page, including California privacy-rights notice.
 - [ ] Production support/contact and privacy-request workflow.
-- [ ] Re-acceptance process tested when Terms version changes.
+- [ ] Re-acceptance process tested when Terms version changes; a version/hash change must invalidate prior acceptance for Real Market access.
 
 ## Identity / AML / sanctions / geography
 
