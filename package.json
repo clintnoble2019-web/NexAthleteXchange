@@ -11,6 +11,7 @@
     "test:milestone2": "tsx scripts/milestone-2-smoke-test.ts",
     "test:milestone3": "tsx scripts/milestone-3-market-test.ts",
     "test:milestone4": "tsx scripts/milestone-4-live-market-test.ts",
+    "test:milestone5": "tsx scripts/milestone-5-engagement-test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
