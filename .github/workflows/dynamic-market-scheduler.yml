@@ -73,6 +73,10 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         run: npm run db:generate
 
+      - name: Check MLB live feed regression cases
+        if: steps.secrets.outputs.ready == 'true'
+        run: node --import tsx --test scripts/market-feed-test.ts
+
       - name: Choose update mode
         if: steps.secrets.outputs.ready == 'true'
         id: mode

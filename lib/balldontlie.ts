@@ -243,7 +243,8 @@ export async function getBdlNbaLiveStats(dates: string[]): Promise<BdlLivePlayer
 
 export async function getBdlMlbLiveStats(dates: string[]): Promise<BdlLivePlayerStat[]> {
   const games = await collectPages<any>((cursor) => {
-    const query = new URLSearchParams({ per_page: "100", season_type: "regular" });
+    // Live performance applies in both the regular season and postseason.
+    const query = new URLSearchParams({ per_page: "100" });
     for (const date of dates) query.append("dates[]", date);
     if (cursor != null) query.set("cursor", String(cursor));
     return `/mlb/v1/games?${query}`;
