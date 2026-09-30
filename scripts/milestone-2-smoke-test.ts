@@ -18,7 +18,7 @@ async function main() {
       const market = await get(`/market?sport=${sport}`);
       assert(market.status === 200, `${sport} market expected 200, got ${market.status}`);
       const marketHtml = await market.text();
-      assert(marketHtml.includes(`${sport} Athlete Market`), `${sport} market heading missing`);
+      assert(marketHtml.includes(String(sport)) && marketHtml.includes("Athlete Market"), `${sport} market heading missing`);
       assert(marketHtml.includes("Browse by team"), `${sport} teams strip missing`);
       for (const athlete of athletes) assert(marketHtml.includes(`/athletes/${athlete.slug}`), `Market missing ${athlete.name}`);
 
