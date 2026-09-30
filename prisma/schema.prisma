@@ -26,11 +26,11 @@ enum LedgerType {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  username     String      @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
+  username     String        @unique
   passwordHash String
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime      @default(now())
   wallet       Wallet?
   positions    Position[]
   trades       Trade[]
@@ -51,28 +51,50 @@ model Session {
 model Wallet {
   id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Decimal  @default(100000) @db.Decimal(18, 2)
+  balance   Decimal  @default(5000) @db.Decimal(18, 2)
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Team {
+  id           String   @id @default(cuid())
+  providerKey  String?  @unique
+  dataProvider String   @default("seed")
+  sport        Sport
+  league       String
+  name         String
+  abbreviation String
+  city         String?
+  conference   String?
+  division     String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([sport, abbreviation])
+  @@index([sport, active])
+}
+
 model Athlete {
-  id             String    @id @default(cuid())
+  id             String          @id @default(cuid())
+  providerKey    String?         @unique
+  dataProvider   String          @default("seed")
   name           String
-  slug           String    @unique
+  slug           String          @unique
   sport          Sport
   league         String
   team           String
   position       String
-  currentPrice   Decimal   @db.Decimal(18, 2)
-  previousPrice  Decimal   @db.Decimal(18, 2)
-  performance    Int       @default(50)
-  active         Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  currentPrice   Decimal         @db.Decimal(18, 2)
+  previousPrice  Decimal         @db.Decimal(18, 2)
+  performance    Int             @default(50)
+  active         Boolean         @default(true)
+  marketEnabled  Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   positions      Position[]
   trades         Trade[]
-  @@index([sport, active])
+  priceHistory   PriceSnapshot[]
+  @@index([sport, active, marketEnabled])
 }
 
 model Position {
@@ -113,4 +135,14 @@ model LedgerEntry {
   createdAt DateTime   @default(now())
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
+}
+
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  athleteId String
+  price     Decimal  @db.Decimal(18, 4)
+  source    String   @default("pricing-engine")
+  createdAt DateTime @default(now())
+  athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  @@index([athleteId, createdAt])
 }

@@ -1,0 +1,87 @@
+name: Milestone 2 CI
+
+on:
+  push:
+    branches:
+      - milestone-2-market-experience
+  pull_request:
+    branches:
+      - milestone-1-foundation
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexathletexchange
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexathletexchange?schema=public
+      SESSION_COOKIE_NAME: nax_session
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Create database schema
+        run: npx prisma db push
+
+      - name: Seed MLB athletes and price history
+        run: npm run db:seed
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Start app
+        run: |
+          npm run start > /tmp/nexathletexchange.log 2>&1 &
+          echo $! > /tmp/nexathletexchange.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/market > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/nexathletexchange.log
+          exit 1
+
+      - name: Run Milestone 1 regression test
+        run: npm run test:smoke
+
+      - name: Run Milestone 2 acceptance test
+        run: npm run test:milestone2
+
+      - name: Show app log on failure
+        if: failure()
+        run: cat /tmp/nexathletexchange.log || true
