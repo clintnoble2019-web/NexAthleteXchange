@@ -23,10 +23,18 @@ export async function POST(req: Request) {
       country: String(form.get("country") || ""),
       region: String(form.get("region") || ""),
       ageConfirmed: form.get("ageConfirmed") === "yes",
+      locationConfirmed: form.get("locationConfirmed") === "yes",
+      accountOwnerConfirmed: form.get("accountOwnerConfirmed") === "yes",
+      identityComplianceConfirmed: form.get("identityComplianceConfirmed") === "yes",
+      productNatureConfirmed: form.get("productNatureConfirmed") === "yes",
+      marketRiskConfirmed: form.get("marketRiskConfirmed") === "yes",
+      fundingRiskConfirmed: form.get("fundingRiskConfirmed") === "yes",
+      prohibitedConductConfirmed: form.get("prohibitedConductConfirmed") === "yes",
+      liveLaunchConfirmed: form.get("liveLaunchConfirmed") === "yes",
       agreementConfirmed: form.get("agreementConfirmed") === "yes",
       electronicConsent: form.get("electronicConsent") === "yes",
-      locationConfirmed: form.get("locationConfirmed") === "yes",
-      riskConfirmed: form.get("riskConfirmed") === "yes",
+      electronicAccessConfirmed: form.get("electronicAccessConfirmed") === "yes",
+      signatureText: String(form.get("signatureText") || ""),
     });
     return NextResponse.redirect(publicRequestUrl(req, next), 303);
   } catch {
