@@ -10,11 +10,13 @@
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:milestone2": "tsx scripts/milestone-2-smoke-test.ts",
     "test:milestone3": "tsx scripts/milestone-3-market-test.ts",
+    "test:milestone4": "tsx scripts/milestone-4-live-market-test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "sync:rosters": "tsx scripts/sync-balldontlie.ts",
-    "init:prices": "tsx scripts/initialize-player-prices.ts"
+    "init:prices": "tsx scripts/initialize-player-prices.ts",
+    "update:market": "tsx scripts/update-live-market.ts"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",
