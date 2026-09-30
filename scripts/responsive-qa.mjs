@@ -53,7 +53,7 @@ try {
         await page.getByRole("button", { name: "Review order", exact: true }).waitFor({ state: "visible" });
         await page.getByRole("button", { name: "ALL", exact: true }).click();
         if (await page.getByRole("button", { name: "ALL", exact: true }).getAttribute("aria-pressed") !== "true") throw new Error("Chart range did not update.");
-        if (width < 1000 && !(await page.getByLabel("Trade an athlete", { exact: true }).isVisible())) throw new Error("Mobile athlete picker is unavailable.");
+        if (width < 1000 && !(await page.getByLabel("Trade an athlete collectible", { exact: true }).isVisible())) throw new Error("Mobile athlete collectible picker is unavailable.");
       }
     }
   }
