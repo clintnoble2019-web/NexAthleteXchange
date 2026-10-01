@@ -6,7 +6,12 @@ export const realMarket = {
   productName: "Digital Athlete Collectibles",
   tradingUnitName: "unit",
   referenceLabel: "Scout Value",
+  // Executable Real Market prices still come from customer/House bids, asks, and fills.
   marketPriceSource: "ORDER_BOOK" as const,
+  // Temporary test bridge only: center each sandbox athlete's reference/House market around
+  // the athlete's current Free Market price. This is intentionally not the long-term pricing model.
+  referencePriceSource: "FREE_MARKET_CURRENT_PRICE_TEMPORARY" as const,
+  referencePriceBridgeTemporary: true,
   performanceCreatesCashEntitlement: false,
   guaranteedProfit: false,
   guaranteedBuyer: false,
@@ -22,8 +27,8 @@ export const realMarket = {
   deposits: ["Bank", "Debit card", "USDC on Solana"],
   withdrawals: ["Bank", "USDC on Solana"],
   launchUniverse: {
-    total: 60,
-    perSport: 20,
+    total: 72,
+    perSport: 24,
     sports: ["NBA", "NFL", "MLB"] as const,
     nflPositions: ["QB", "WR", "RB"] as const,
   },
