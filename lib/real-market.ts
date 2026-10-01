@@ -5,7 +5,7 @@ export const realMarket = {
   productType: "LIMITED_SUPPLY_DIGITAL_ATHLETE_COLLECTIBLES" as const,
   productName: "Digital Athlete Collectibles",
   tradingUnitName: "unit",
-  referenceLabel: "Scout Value",
+  referenceLabel: "Skill Value",
   // Executable Real Market prices still come from customer/House bids, asks, and fills.
   marketPriceSource: "ORDER_BOOK" as const,
   // Temporary test bridge only: center each sandbox athlete's reference/House market around
