@@ -28,7 +28,7 @@ function assert(condition: unknown, message: string): asserts condition {
 async function ensureCandidates() {
   const sports = [Sport.NBA, Sport.NFL, Sport.MLB];
   for (const sport of sports) {
-    for (let index = 1; index <= 21; index += 1) {
+    for (let index = 1; index <= 25; index += 1) {
       const position = sport === Sport.NFL
         ? (["QB", "WR", "RB"] as const)[(index - 1) % 3]
         : sport === Sport.NBA
@@ -67,9 +67,9 @@ async function main() {
   await ensureCandidates();
 
   const universe = await syncSandboxRealMarketUniverse();
-  assert(universe.NBA === 20, `Expected 20 NBA Real Market instruments, got ${universe.NBA}`);
-  assert(universe.NFL === 20, `Expected 20 NFL Real Market instruments, got ${universe.NFL}`);
-  assert(universe.MLB === 20, `Expected 20 MLB Real Market instruments, got ${universe.MLB}`);
+  assert(universe.NBA === 24, `Expected 24 NBA Real Market instruments, got ${universe.NBA}`);
+  assert(universe.NFL === 24, `Expected 24 NFL Real Market instruments, got ${universe.NFL}`);
+  assert(universe.MLB === 24, `Expected 24 MLB Real Market instruments, got ${universe.MLB}`);
 
   const nflInvalid = await prisma.realMarketInstrument.count({
     where: {
@@ -101,6 +101,7 @@ async function main() {
     orderBy: { launchRank: "asc" },
   });
   assert(instrument, "Could not find an active NBA Real Market instrument.");
+  assert(Number(instrument.referencePrice) === Number(instrument.athlete.currentPrice), "Temporary Real Market reference price did not mirror the Free Market price.");
 
   await setSandboxProviderInventory(provider.id, instrument.id, 100);
   const reference = Number(instrument.referencePrice);
@@ -157,13 +158,13 @@ async function main() {
   const nbaActiveAfterReplacement = await prisma.realMarketInstrument.count({
     where: { environment: RealMarketEnvironment.SANDBOX, athlete: { sport: Sport.NBA }, status: { not: RealInstrumentStatus.RETIRED } },
   });
-  assert(nbaActiveAfterReplacement === 20, `Replacement policy did not restore NBA universe to 20; got ${nbaActiveAfterReplacement}`);
+  assert(nbaActiveAfterReplacement === 24, `Replacement policy did not restore NBA universe to 24; got ${nbaActiveAfterReplacement}`);
 
   const liveInstrumentCount = await prisma.realMarketInstrument.count({ where: { environment: RealMarketEnvironment.LIVE } });
   const liveProviderCount = await prisma.liquidityProvider.count({ where: { environment: RealMarketEnvironment.LIVE } });
   assert(liveInstrumentCount === 0 && liveProviderCount === 0, "Foundation 3 created LIVE liquidity records.");
 
-  console.log("Real Market Foundation 3 institutional liquidity test: PASS");
+  console.log("Real Market Foundation 3 institutional liquidity test: PASS (72 athletes, temporary Free Market reference bridge).");
 }
 
 main().finally(() => prisma.$disconnect());
