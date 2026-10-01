@@ -14,6 +14,7 @@
     "test:milestone5": "tsx scripts/milestone-5-engagement-test.ts",
     "test:realmarket": "tsx scripts/real-market-foundation-2-test.ts",
     "test:realmarket3": "tsx scripts/real-market-foundation-3-test.ts",
+    "test:providerstack": "tsx scripts/provider-stack-test.ts",
     "lp:provision:sandbox": "tsx scripts/provision-sandbox-lp.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -25,7 +26,10 @@
     "snapshot:weekly": "tsx scripts/snapshot-weekly-leaderboard.ts",
     "test:foundation4": "tsx scripts/foundation-4-test.ts",
     "beta:cleanup": "tsx scripts/cleanup-beta-records.ts",
-    "test:responsive": "node scripts/responsive-qa.mjs"
+    "test:responsive": "node scripts/responsive-qa.mjs",
+    "test:customermatching": "tsx scripts/customer-matching-test.ts",
+    "scout:setup": "tsx scripts/setup-scout-test.ts",
+    "scout:bootstrap": "node scripts/bootstrap-scout-test.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",

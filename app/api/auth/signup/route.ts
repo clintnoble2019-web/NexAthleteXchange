@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
-import { beginSandboxEnrollment } from "@/lib/identity";
 import { realMarketSandboxPreviewEnabled } from "@/lib/real-market";
 import { consumeRateLimit, requestSource } from "@/lib/request-security";
 import { z } from "zod";
@@ -36,11 +35,9 @@ export async function POST(req: Request) {
     });
 
     await createSession(user.id);
-    if (realSignup) {
-      await beginSandboxEnrollment(user.id);
-      return NextResponse.redirect(publicRequestUrl(req, "/real-market/verify"), 303);
-    }
-    return NextResponse.redirect(publicRequestUrl(req, "/market?auth=signup"), 303);
+    const terms = publicRequestUrl(req, "/terms/accept");
+    terms.searchParams.set("next", realSignup ? "/real-market/verify" : "/market?auth=signup");
+    return NextResponse.redirect(terms, 303);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.redirect(publicRequestUrl(req, "/signup?error=exists"), 303);
     throw error;

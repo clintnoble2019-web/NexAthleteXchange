@@ -71,7 +71,7 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
       <div>
         <div className="realMarketBadge sandboxBadge">SANDBOX ONLY • NO REAL MONEY</div>
         <h1>Real Market Sandbox</h1>
-        <p className="muted">Internal reference-price simulator for fake USD/USDC balances, ${realMarket.tradeFee.toFixed(2)} fees, persistent athlete positions, and funding records. This console does not match orders between scouts; that planned launch model is still to be built.</p>
+        <p className="muted">Internal reference-price simulator for fake USD/USDC balances, ${realMarket.tradeFee.toFixed(2)} fees, persistent athlete positions, and funding records. This console does not match orders between scouts; the separate customer test market exercises that model with its own fake balances.</p>
       </div>
       <Link className="button secondary" href="/real-market">Back to Coming Soon</Link>
     </header>

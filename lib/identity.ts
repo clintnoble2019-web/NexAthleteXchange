@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertAccountActive, isAdmin } from "@/lib/beta-controls";
 import { assertRealMarketSandbox } from "@/lib/real-market";
+import { cancelScoutOrdersTx } from "@/lib/scout-market";
 
 export async function beginSandboxEnrollment(userId: string) {
   assertRealMarketSandbox();
@@ -31,6 +32,7 @@ export async function reviewSandboxIdentity(actorId: string, userId: string, dec
       const result = await tx.realEnrollment.update({ where: { userId }, data: {
         status: decision, identityHash: existing.identityHash || identityHash, reviewedAt: new Date(), providerRef: "sandbox-admin-review",
       } });
+      if (decision === "REJECTED") await cancelScoutOrdersTx(tx, { userId }, "Identity verification revoked");
       await tx.adminAuditEvent.create({ data: { actorId, action: `IDENTITY_${decision}`, targetId: userId, reason: reason.trim(), details: { environment: "SANDBOX" } } });
       return result;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

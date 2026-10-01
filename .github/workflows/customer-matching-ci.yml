@@ -1,0 +1,78 @@
+name: Customer Matching CI
+on:
+  push:
+    branches: [real-market-customer-matching]
+  pull_request:
+    branches: [foundation-4-beta-controls, real-market-customer-matching, main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexathletexchange
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexathletexchange?schema=public
+      APP_ORIGIN: http://127.0.0.1:3000
+      ADMIN_USER_IDS: foundation4-test-admin,scout-test-admin
+      REAL_MARKET_SANDBOX_PREVIEW: "1"
+      REAL_MARKET_CUSTOMER_TEST: "1"
+      SCOUT_TEST_DATABASE: "1"
+      SCOUT_TEST_PASSWORD: "Ci-scout-password-2026!"
+      FOUNDATION4_TEST_DATABASE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npx prisma db push
+      - run: npx prisma db execute --file prisma/releases/customer-matching-checks.sql --schema prisma/schema.prisma
+      - run: npm run db:seed
+      - run: npm run typecheck
+      - run: npm run test:providerstack
+      - run: npm run build
+      - name: Start app
+        run: |
+          npm start > /tmp/nexathletexchange.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/nexathletexchange.log
+          exit 1
+      - run: npm run test:smoke
+      - run: npm run test:milestone2
+      - run: npm run test:milestone3
+      - run: npm run test:milestone4
+      - run: npm run test:milestone5
+      - run: npm run test:realmarket
+      - run: npm run test:realmarket3
+      - run: npm run test:foundation4
+      - run: npm run test:customermatching
+      - run: npm run scout:setup
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:responsive
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customer-matching-responsive-qa
+          path: qa-output/
+      - name: Show app log on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/nexathletexchange.log ]; then cat /tmp/nexathletexchange.log; else echo "App did not start; no app log was created."; fi

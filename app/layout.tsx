@@ -5,17 +5,20 @@ import "./real-market.css";
 import { isAdmin } from "@/lib/beta-controls";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { realMarketCustomerTestEnabled } from "@/lib/real-market";
 
-export const metadata = { title: "NexAthleteXchange", description: "Scout athletes. Trade shares. Climb the leaderboard." };
+export const metadata = { title: "NexAthleteXchange", description: "Scout athletes. Build collectible positions. Trade the market." };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   return <html lang="en"><body>
     <a className="skipLink" href="#main-content">Skip to content</a>
     <nav aria-label="Main navigation" className="nav"><Link className="brand" href="/">NexAthleteXchange</Link><div className="navlinks">
-      <Link href="/market">Market</Link><Link href="/real-market">Real Market</Link><Link href="/discover">Discover</Link><Link href="/leaderboard">Leaderboard</Link><Link href="/tutorial">How it works</Link>{user && <Link href="/watchlist">Watchlist</Link>}<Link href="/portfolio">Portfolio</Link>
+      <Link href="/market">Free Market</Link><Link href="/real-market">Real Market</Link><Link href="/discover">Discover</Link><Link href="/leaderboard">Leaderboard</Link><Link href="/tutorial">How it works</Link>{user && <Link href="/watchlist">Watchlist</Link>}<Link href="/portfolio">Portfolio</Link>
       {user && isAdmin(user.id) && <Link href="/admin">Admin</Link>}
+      {user && realMarketCustomerTestEnabled() && <><Link href="/real-market/test">Test Market</Link><Link href="/real-market/funding">USDC Funding</Link></>}
       {user ? <form action="/api/auth/logout" method="post"><button className="secondary">Log out</button></form> : <Link href="/login">Log in</Link>}
     </div></nav><div id="main-content">{children}</div>
+    <footer className="shell" style={{paddingTop: 32, paddingBottom: 32}}><p className="muted"><Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/risk-disclosure">Real Market Risks</Link></p></footer>
   </body></html>;
 }

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertAccountActive, isAdmin } from "@/lib/beta-controls";
+import { cancelScoutOrdersTx } from "@/lib/scout-market";
 
 export type AdminAction = "FREEZE" | "UNFREEZE" | "EXCLUDE_LEADERBOARD" | "RESTORE_LEADERBOARD" | "HALT_ATHLETE" | "RESUME_ATHLETE" | "PAUSE_FREE" | "RESUME_FREE" | "PAUSE_SANDBOX" | "RESUME_SANDBOX" | "SUSPEND_LP";
 export const adminActions: AdminAction[] = ["FREEZE", "UNFREEZE", "EXCLUDE_LEADERBOARD", "RESTORE_LEADERBOARD", "HALT_ATHLETE", "RESUME_ATHLETE", "PAUSE_FREE", "RESUME_FREE", "PAUSE_SANDBOX", "RESUME_SANDBOX", "SUSPEND_LP"];
@@ -30,11 +31,15 @@ export async function applyAdminAction(actorId: string, action: AdminAction, tar
       const before = await tx.user.findUniqueOrThrow({ where: { id: targetId }, select: { accountFrozen: true, leaderboardEligible: true } });
       const data = action === "FREEZE" ? { accountFrozen: true } : action === "UNFREEZE" ? { accountFrozen: false } : { leaderboardEligible: action === "RESTORE_LEADERBOARD" };
       await tx.user.update({ where: { id: targetId }, data });
-      if (action === "FREEZE") await tx.session.deleteMany({ where: { userId: targetId } });
+      if (action === "FREEZE") {
+        await cancelScoutOrdersTx(tx, { userId: targetId }, "Account frozen by administrator");
+        await tx.session.deleteMany({ where: { userId: targetId } });
+      }
       details = { before, after: data };
     } else if (["HALT_ATHLETE", "RESUME_ATHLETE"].includes(action)) {
       const before = await tx.athlete.findUniqueOrThrow({ where: { id: targetId }, select: { marketEnabled: true } });
       await tx.athlete.update({ where: { id: targetId }, data: { marketEnabled: action === "RESUME_ATHLETE" } });
+      if (action === "HALT_ATHLETE") await cancelScoutOrdersTx(tx, { athleteId: targetId }, "Athlete halted by administrator");
       details = { before, marketEnabled: action === "RESUME_ATHLETE" };
     } else if (action === "SUSPEND_LP") {
       const provider = await tx.liquidityProvider.findUniqueOrThrow({ where: { id: targetId } });
