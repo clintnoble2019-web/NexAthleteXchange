@@ -11,16 +11,16 @@ export default function RealMarketPage() {
     <section className="realMarketHero shell">
       <div className="realMarketBadge">REAL MARKET • COMING SOON</div>
       <h1>Collect athletes. Trade the market.</h1>
-      <p className="realMarketLead">The planned Real Market is a marketplace for limited-supply digital athlete collectibles across NBA, NFL, and MLB. Scout the player, choose your price, and trade units with other market participants.</p>
+      <p className="realMarketLead">The planned Real Market is a marketplace for limited-supply digital athlete collectibles across NBA, NFL, and MLB. Evaluate player skill, choose your price, and trade units with other market participants.</p>
       <div className="realMarketStatus card"><div><span className="eyebrow">LAUNCH STATUS</span><strong>Not live yet</strong></div><p>No real-money deposits, withdrawals, or trades are enabled today. The Free Market remains playable with NexPoints.</p></div>
       <div className="realMarketActions"><Link className="button landingPrimary" href="/market">Play the Free Market</Link><Link className="button secondary" href="/terms">Review Terms</Link></div>
     </section>
 
     <section className="realMarketSection shell">
-      <div className="realMarketSectionHead"><span className="landingEyebrow">THE COLLECTIBLE MODEL</span><h2>Performance informs your research. The market sets the money price.</h2><p className="muted">NexAthleteXchange can publish a Scout Value based on sports data, but that value is not a cash entitlement. Executable prices come from bids, asks, completed trades, and available depth.</p></div>
+      <div className="realMarketSectionHead"><span className="landingEyebrow">THE COLLECTIBLE MODEL</span><h2>Performance informs your research. The market sets the money price.</h2><p className="muted">NexAthleteXchange can publish a Skill Value based on sports data, but that value is not a cash entitlement. Executable prices come from bids, asks, completed trades, and available depth.</p></div>
       <div className="realMarketGrid">
         <article className="card realMarketCard"><span>01</span><h3>Limited supply</h3><p>Each live athlete series will have a disclosed maximum number of digital collectible units and a disclosed allocation policy. Units do not represent athlete, team, or company ownership.</p></article>
-        <article className="card realMarketCard"><span>02</span><h3>Scout Value</h3><p>Sports performance, statistics, and research produce an informational Scout Value. It helps you evaluate an athlete but does not guarantee a sale price, payout, or redemption.</p></article>
+        <article className="card realMarketCard"><span>02</span><h3>Skill Value</h3><p>Sports performance, statistics, and research produce an informational Skill Value. It helps you evaluate an athlete&apos;s on-field skill and form but does not guarantee a sale price, payout, or redemption.</p></article>
         <article className="card realMarketCard"><span>03</span><h3>Market price</h3><p>Buyers and sellers determine actual trading prices through the order book. Orders may fill, partially fill, wait, or remain unfilled.</p></article>
         <article className="card realMarketCard"><span>04</span><h3>Own until you trade</h3><p>A collectible unit remains in your account until it is sold or handled under a disclosed lifecycle rule. A game ending does not automatically settle the unit like a bet.</p></article>
       </div>
