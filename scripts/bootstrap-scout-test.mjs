@@ -17,10 +17,10 @@ try {
 }
 
 const scripts = initialized
-  ? ["scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"]
-  : ["prisma/seed.ts", "scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"];
+  ? ["scripts/normalize-scout-universe.ts", "scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"]
+  : ["prisma/seed.ts", "scripts/normalize-scout-universe.ts", "scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"];
 
-if (initialized) console.log("Existing customer fixtures retained; refreshing fixed supply and NEX House liquidity.");
+if (initialized) console.log("Existing customer fixtures retained; normalizing the 72-athlete universe and refreshing fixed supply and NEX House liquidity.");
 
 for (const script of scripts) {
   const result = spawnSync(process.execPath, ["--import", "tsx", script], { env: process.env, stdio: "inherit" });
