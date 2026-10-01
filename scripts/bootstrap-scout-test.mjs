@@ -17,8 +17,8 @@ try {
 }
 
 const scripts = initialized
-  ? ["scripts/setup-scout-test.ts"]
-  : ["prisma/seed.ts", "scripts/setup-scout-test.ts"];
+  ? ["scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"]
+  : ["prisma/seed.ts", "scripts/setup-scout-test.ts", "scripts/verify-scout-universe.ts"];
 
 if (initialized) console.log("Existing customer fixtures retained; refreshing fixed supply and NEX House liquidity.");
 
