@@ -56,7 +56,7 @@ async function main() {
       });
       await prisma.liquidityQuote.updateMany({
         where: { instrumentId: instrument.id, status: LiquidityQuoteStatus.ACTIVE },
-        data: { status: LiquidityQuoteStatus.CANCELED },
+        data: { status: LiquidityQuoteStatus.CANCELLED },
       });
       await prisma.realMarketInstrument.update({
         where: { id: instrument.id },
