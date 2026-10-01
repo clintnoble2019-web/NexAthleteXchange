@@ -31,7 +31,7 @@ export function AthleteList({ athletes, selected }: { athletes: AthleteChoice[];
       </Link>;
     })}</div>
     {filtered.length === 0 && <p className={styles.empty}>No athletes match your search.</p>}
-    <p className={styles.caption}>Displayed values are Scout/performance references. Executable cash prices come from matched market orders.</p>
+    <p className={styles.caption}>Displayed values are Skill/performance references. Executable cash prices come from matched market orders.</p>
   </aside>;
 }
 
@@ -58,9 +58,9 @@ export function ReferenceChart({ points, name, currentPrice, previousPrice }: { 
   const percent = baseline > 0 ? change / baseline * 100 : 0;
   const labels: Record<string, string> = { "1D": "Past day", "1W": "Past week", "1M": "Past month", "ALL": "Recorded history" };
   const colorClass = visible.length > 1 && visible[visible.length - 1].price < visible[0].price ? styles.downChart : "";
-  return <><div className={styles.assetPrice}>{money(shownPrice)}</div><div className={`${styles.assetChange} ${change < 0 ? styles.negative : styles.positive}`}><span>{change >= 0 ? "+" : ""}{money(change)} ({change >= 0 ? "+" : ""}{percent.toFixed(2)}%)</span><small>{visible.length > 1 ? labels[range] : "vs. previous Scout Value"}</small></div><div className={`${styles.chart} ${colorClass}`}>
-    <div className={styles.chartLabel}><span>Scout Value history</span><span>{highlighted ? `${money(highlighted.price)} · ${new Date(highlighted.time).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "Sandbox research data"}</span></div>
-    {visible.length > 1 ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${name} Scout Value history, ${range}. From ${money(visible[0].price)} to ${money(visible[visible.length - 1].price)}.`} onPointerMove={e => {
+  return <><div className={styles.assetPrice}>{money(shownPrice)}</div><div className={`${styles.assetChange} ${change < 0 ? styles.negative : styles.positive}`}><span>{change >= 0 ? "+" : ""}{money(change)} ({change >= 0 ? "+" : ""}{percent.toFixed(2)}%)</span><small>{visible.length > 1 ? labels[range] : "vs. previous Skill Value"}</small></div><div className={`${styles.chart} ${colorClass}`}>
+    <div className={styles.chartLabel}><span>Skill Value history</span><span>{highlighted ? `${money(highlighted.price)} · ${new Date(highlighted.time).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : "Sandbox research data"}</span></div>
+    {visible.length > 1 ? <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${name} Skill Value history, ${range}. From ${money(visible[0].price)} to ${money(visible[visible.length - 1].price)}.`} onPointerMove={e => {
       const box = e.currentTarget.getBoundingClientRect();
       const target = (e.clientX - box.left) / box.width * width;
       let index = 0; for (let i = 1; i < coords.length; i++) if (Math.abs(coords[i].x - target) < Math.abs(coords[index].x - target)) index = i;
@@ -69,9 +69,9 @@ export function ReferenceChart({ points, name, currentPrice, previousPrice }: { 
       <path d={`${line} L${coords[coords.length - 1].x},${height} L${coords[0].x},${height} Z`} fill="currentColor" opacity=".045" />
       <path d={line} fill="none" stroke="currentColor" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
       {hover !== null && coords[hover] && <><line x1={coords[hover].x} x2={coords[hover].x} y1="0" y2={height} stroke="currentColor" opacity=".3"/><circle cx={coords[hover].x} cy={coords[hover].y} r="4" fill="currentColor"/></>}
-    </svg> : <div className={styles.chartEmpty}><strong>{values.length ? money(values[0]) : "No history yet"}</strong><span>More recorded Scout Values are needed to show this range.</span></div>}
+    </svg> : <div className={styles.chartEmpty}><strong>{values.length ? money(values[0]) : "No history yet"}</strong><span>More recorded Skill Values are needed to show this range.</span></div>}
     {visible.length > 1 && <div className={styles.chartDates}><span>{new Date(visible[0].time).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</span><span>{new Date(visible[visible.length - 1].time).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</span></div>}
-    <div className={styles.rangeButtons} aria-label="Scout Value history range">{Object.keys(days).map(r => <button type="button" key={r} aria-pressed={r === range} onClick={() => { setRange(r); setHover(null); }}>{r}</button>)}</div>
+    <div className={styles.rangeButtons} aria-label="Skill Value history range">{Object.keys(days).map(r => <button type="button" key={r} aria-pressed={r === range} onClick={() => { setRange(r); setHover(null); }}>{r}</button>)}</div>
   </div></>;
 }
 
