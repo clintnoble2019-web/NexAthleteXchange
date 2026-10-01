@@ -25,7 +25,7 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
   const params = await searchParams;
   const [control, account, instruments] = await Promise.all([
     prisma.betaControl.findUnique({ where: { id: "global" } }), ensureScoutWallet(user.id),
-    prisma.realMarketInstrument.findMany({ where: { environment: "SANDBOX", status: { not: "RETIRED" } }, include: { athlete: true }, orderBy: [{ athlete: { sport: "asc" } }, { athlete: { name: "asc" } }], take: 60 }),
+    prisma.realMarketInstrument.findMany({ where: { environment: "SANDBOX", status: { not: "RETIRED" } }, include: { athlete: true }, orderBy: [{ athlete: { sport: "asc" } }, { athlete: { name: "asc" } }], take: 72 }),
   ]);
   const selected = instruments.find(item => item.athleteId === params.athlete) || instruments[0];
   const athleteId = selected?.athleteId;
@@ -72,6 +72,6 @@ export default async function ScoutTestMarket({ searchParams }: { searchParams: 
     </div>
     <ActivityTabs initialActive={params.notice?.startsWith("Order ") ? 1 : 0} panels={[{ label:"Positions", count:positions.length, content:positionsPanel },{ label:"Orders", count:orders.length, content:ordersPanel },{ label:"Fills", count:fills.length, content:fillsPanel },{ label:"Cash activity", count:entries.length, content:auditPanel }]}/>
     <details className={styles.funding}><summary>Add fake test cash</summary><div className={styles.fundingForms} id="test-funding">{cashForm()}<div className={styles.notice}><strong>No fake-cash withdrawals</strong><p>Fake buying power and fake trading gains stay inside the test market. They cannot be withdrawn, redeemed, or converted into provider USDC.</p></div></div></details>
-    <footer className={styles.footer}>This is a simulated digital athlete collectible market. Fake cash and collectible units have no real monetary value and cannot be withdrawn or converted to USDC. Scout Values are research references, not guaranteed sale or redemption prices. Actual executable prices come from the order book. Real-money trading remains disabled. <Link href="/terms">Terms</Link> · <Link href="/risk-disclosure">Risks</Link></footer>
+    <footer className={styles.footer}>This is a simulated digital athlete collectible market. For this test phase only, Scout/reference prices are temporarily sourced from each athlete&apos;s current Free Market price; this bridge is not the permanent Real Market pricing model. Fake cash and collectible units have no real monetary value and cannot be withdrawn or converted to USDC. Actual executable prices come from the order book. Real-money trading remains disabled. <Link href="/terms">Terms</Link> · <Link href="/risk-disclosure">Risks</Link></footer>
   </main>;
 }
