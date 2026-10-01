@@ -11,21 +11,51 @@ import { cancelScoutOrdersTx, scoutTransaction } from "../lib/scout-market";
 const prisma = new PrismaClient();
 const SANDBOX = RealMarketEnvironment.SANDBOX;
 
+function sportEligibility(sport: Sport) {
+  return sport === Sport.NFL ? { position: { in: [...realMarket.launchUniverse.nflPositions] } } : {};
+}
+
 async function selectedFreeMarketAthletes(sport: Sport) {
-  const athletes = await prisma.athlete.findMany({
+  const limit = realMarket.launchUniverse.perSport;
+  const active = await prisma.athlete.findMany({
     where: {
       sport,
       active: true,
       marketEnabled: true,
-      ...(sport === Sport.NFL ? { position: { in: [...realMarket.launchUniverse.nflPositions] } } : {}),
+      currentPrice: { gt: 0 },
+      ...sportEligibility(sport),
     },
     orderBy: [{ marketCap: "desc" }, { currentPrice: "desc" }, { name: "asc" }],
-    take: realMarket.launchUniverse.perSport,
+    take: limit,
   });
-  if (athletes.length !== realMarket.launchUniverse.perSport) {
-    throw new Error(`${sport} only has ${athletes.length} eligible Free Market athletes; ${realMarket.launchUniverse.perSport} are required.`);
+
+  if (active.length >= limit) return active.slice(0, limit);
+
+  const needed = limit - active.length;
+  const dormant = await prisma.athlete.findMany({
+    where: {
+      sport,
+      currentPrice: { gt: 0 },
+      id: { notIn: active.map((athlete) => athlete.id) },
+      ...sportEligibility(sport),
+    },
+    orderBy: [{ marketCap: "desc" }, { currentPrice: "desc" }, { name: "asc" }],
+    take: needed,
+  });
+
+  if (dormant.length < needed) {
+    throw new Error(`${sport} has ${active.length + dormant.length} priced athlete records; ${limit} are required for the Free Market test universe.`);
   }
-  return athletes;
+
+  if (dormant.length) {
+    await prisma.athlete.updateMany({
+      where: { id: { in: dormant.map((athlete) => athlete.id) } },
+      data: { active: true, marketEnabled: true },
+    });
+    console.log(`${sport}: promoted ${dormant.length} existing priced athlete records into the Free Market test universe.`);
+  }
+
+  return [...active, ...dormant].slice(0, limit);
 }
 
 async function main() {
