@@ -17,20 +17,18 @@ async function main() {
     include: { athlete: true },
   });
 
-  const validNflPositions = new Set<string>(realMarket.launchUniverse.nflPositions);
+  const validNflPositions = new Set<string>([...realMarket.launchUniverse.nflPositions]);
   const stale = existing.filter((instrument) =>
     !instrument.athlete.active ||
     !instrument.athlete.marketEnabled ||
     (instrument.athlete.sport === Sport.NFL && !validNflPositions.has(instrument.athlete.position)),
   );
 
-  const now = new Date();
   for (const instrument of stale) {
     await prisma.realMarketInstrument.update({
       where: { id: instrument.id },
       data: {
         status: RealInstrumentStatus.RETIRED,
-        retiredAt: now,
         retirementDeadline: null,
         retirementReason: "Removed from the isolated 72-athlete test universe because the Free Market athlete is no longer eligible.",
       },
