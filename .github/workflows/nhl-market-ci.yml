@@ -1,0 +1,57 @@
+name: NHL Market CI
+
+on:
+  push:
+    branches:
+      - feature/nhl-market
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexathletexchange
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexathletexchange?schema=public
+      SESSION_COOKIE_NAME: nax_session
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Create database schema
+        run: npx prisma db push
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Verify NHL public data and pricing
+        run: npx tsx scripts/nhl-market-test.ts
+
+      - name: Build
+        run: npm run build
