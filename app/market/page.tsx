@@ -41,6 +41,7 @@ function positiveInt(value: string | undefined, fallback: number) {
 function sportFromParam(value: string | undefined) {
   if (value === "MLB") return Sport.MLB;
   if (value === "NFL") return Sport.NFL;
+  if (value === "NHL") return Sport.NHL;
   return Sport.NBA;
 }
 
@@ -130,7 +131,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
   return <main className="shell">
     <div className="hero">
       <div>
-        <p className="muted">FREE MARKET • NBA + NFL + MLB</p>
+        <p className="muted">FREE MARKET • NBA + NFL + MLB + NHL</p>
         <h1>{sportName} Athlete Market</h1>
         <p className="muted">Trade athlete shares with NexPoints. Fractional shares start at 0.01.</p>
       </div>
@@ -146,6 +147,7 @@ export default async function Market({ searchParams }: { searchParams: Promise<M
       <Link className={sport === Sport.NBA ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NBA", team: "", position: "", page: 1 })}>NBA</Link>
       <Link className={sport === Sport.NFL ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NFL", team: "", position: "", page: 1 })}>NFL</Link>
       <Link className={sport === Sport.MLB ? "sportTab active" : "sportTab"} href={marketHref({ sport: "MLB", team: "", position: "", page: 1 })}>MLB</Link>
+      <Link className={sport === Sport.NHL ? "sportTab active" : "sportTab"} href={marketHref({ sport: "NHL", team: "", position: "", page: 1 })}>NHL</Link>
     </div>
 
     <section className="teamsBlock">
