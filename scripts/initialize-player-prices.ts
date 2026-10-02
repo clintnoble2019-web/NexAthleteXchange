@@ -1,11 +1,13 @@
 import { PrismaClient, Sport } from "@prisma/client";
 import { getBdlMlbSeasonStats, getBdlNbaSeasonAverages, getBdlNflSeasonStats } from "../lib/balldontlie";
+import { currentNhlSeasonStart, getNhlSeasonStats } from "../lib/nhl";
 import {
   buildPercentiles,
   initialPricingConfig,
   mlbPerformanceRawScore,
   nbaPerformanceRawScore,
   nflPerformanceRawScore,
+  nhlPerformanceRawScore,
   performanceFromPercentile,
   priceFromPercentile,
   type LaunchSport
@@ -15,8 +17,10 @@ const prisma = new PrismaClient();
 
 function providerPlayerId(providerKey: string | null) {
   if (!providerKey) return null;
-  const match = providerKey.match(/^bdl:(NBA|MLB|NFL):player:(\d+)$/);
-  return match ? Number(match[2]) : null;
+  const bdl = providerKey.match(/^bdl:(NBA|MLB|NFL):player:(\d+)$/);
+  if (bdl) return Number(bdl[2]);
+  const nhl = providerKey.match(/^nhl:player:(\d+)$/);
+  return nhl ? Number(nhl[1]) : null;
 }
 
 function defaultNbaSeason(now = new Date()) {
@@ -45,25 +49,28 @@ function seasonFromEnv(name: string, fallback: number) {
 async function statsForSport(sport: LaunchSport, season: number) {
   if (sport === "NBA") return getBdlNbaSeasonAverages(season);
   if (sport === "MLB") return getBdlMlbSeasonStats(season);
-  return getBdlNflSeasonStats(season);
+  if (sport === "NFL") return getBdlNflSeasonStats(season);
+  return getNhlSeasonStats(season);
 }
 
 function rawScoreForSport(sport: LaunchSport, stats: Record<string, unknown>) {
   if (sport === "NBA") return nbaPerformanceRawScore(stats);
   if (sport === "MLB") return mlbPerformanceRawScore(stats);
-  return nflPerformanceRawScore(stats);
+  if (sport === "NFL") return nflPerformanceRawScore(stats);
+  return nhlPerformanceRawScore(stats);
 }
 
 async function priceSport(sport: LaunchSport, season: number) {
   const prismaSport = Sport[sport];
+  const dataProvider = sport === "NHL" ? "nhl-official" : "balldontlie";
   const athletes = await prisma.athlete.findMany({
-    where: { sport: prismaSport, active: true, dataProvider: "balldontlie" },
+    where: { sport: prismaSport, active: true, dataProvider },
     orderBy: { name: "asc" }
   });
   const pending = athletes.filter((athlete) => !athlete.marketEnabled);
 
   if (pending.length === 0) {
-    console.log(`${sport}: no unpriced active BALLDONTLIE players found.`);
+    console.log(`${sport}: no unpriced active players found.`);
     return;
   }
 
@@ -111,7 +118,7 @@ async function priceSport(sport: LaunchSport, season: number) {
         data: {
           athleteId: assignment.athlete.id,
           price: assignment.price,
-          source: `initial-balldontlie-${sport.toLowerCase()}-${season}`
+          source: `initial-${sport === "NHL" ? "nhl-official" : "balldontlie"}-${sport.toLowerCase()}-${season}`
         }
       })
     ]);
@@ -130,10 +137,12 @@ async function main() {
   const nbaSeason = seasonFromEnv("NEX_NBA_PRICING_SEASON", defaultNbaSeason());
   const mlbSeason = seasonFromEnv("NEX_MLB_PRICING_SEASON", defaultMlbSeason());
   const nflSeason = seasonFromEnv("NEX_NFL_PRICING_SEASON", defaultNflSeason());
-  console.log(`Initializing NexPoints prices using NBA ${nbaSeason}, MLB ${mlbSeason}, and NFL ${nflSeason} regular-season data...`);
+  const nhlSeason = seasonFromEnv("NEX_NHL_PRICING_SEASON", currentNhlSeasonStart());
+  console.log(`Initializing NexPoints prices using NBA ${nbaSeason}, MLB ${mlbSeason}, NFL ${nflSeason}, and NHL ${nhlSeason}-${String(nhlSeason + 1).slice(-2)} regular-season data...`);
   await priceSport("NBA", nbaSeason);
   await priceSport("MLB", mlbSeason);
   await priceSport("NFL", nflSeason);
+  await priceSport("NHL", nhlSeason);
 }
 
 main()
