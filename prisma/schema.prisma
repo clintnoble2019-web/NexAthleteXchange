@@ -11,6 +11,7 @@ enum Sport {
   MLB
   NFL
   NBA
+  NHL
   SOCCER
 }
 
@@ -162,7 +163,7 @@ model Athlete {
   performanceValues     PerformanceValueEvent[]
   watchlistedBy         WatchlistEntry[]
   realPositions         RealPosition[]
-  realTrades            RealTrade[]
+  realTrades             RealTrade[]
   realMarketInstruments RealMarketInstrument[]
   @@index([sport, active, marketEnabled])
   @@index([sport, marketCap])
@@ -311,9 +312,9 @@ model RealLedgerEntry {
   type        RealLedgerType
   amount      Decimal               @db.Decimal(18, 2)
   balance     Decimal               @db.Decimal(18, 2)
-  reference   String?
-  createdAt   DateTime              @default(now())
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference String?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, environment, createdAt])
   @@index([reference])
 }
