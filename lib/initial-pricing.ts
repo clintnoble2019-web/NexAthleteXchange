@@ -28,7 +28,8 @@ function minutesValue(value: unknown) {
     const [minutes, seconds] = value.split(":").map(Number);
     if (Number.isFinite(minutes) && Number.isFinite(seconds)) return minutes + seconds / 60;
   }
-  return valueOrZero(value);
+  const raw = valueOrZero(value);
+  return raw > 120 ? raw / 60 : raw;
 }
 
 export function priceFromPercentile(percentile: number) {
