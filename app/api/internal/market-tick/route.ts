@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runLiveMarketUpdate, runSeasonMarketUpdate } from "@/lib/market-engine";
+import { runNhlLiveMarketUpdate, runNhlSeasonMarketUpdate } from "@/lib/nhl-market-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,13 @@ export async function POST(request: Request) {
   try {
     if (mode === "baseline") {
       const result = await runSeasonMarketUpdate(prisma);
-      return NextResponse.json({ ok: true, result });
+      const nhl = await runNhlSeasonMarketUpdate(prisma);
+      return NextResponse.json({ ok: true, result: { ...result, nhlSeason: nhl.season, nhl } });
     }
     if (mode === "live") {
       const result = await runLiveMarketUpdate(prisma);
-      return NextResponse.json({ ok: true, result });
+      const nhl = await runNhlLiveMarketUpdate(prisma);
+      return NextResponse.json({ ok: true, result: { ...result, nhl } });
     }
     return NextResponse.json({ error: "Unknown market tick mode" }, { status: 400 });
   } catch (error) {
