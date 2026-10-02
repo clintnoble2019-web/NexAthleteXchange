@@ -1,5 +1,6 @@
 import { PrismaClient, Sport } from "@prisma/client";
 import { getBdlActivePlayers, getBdlTeams, type BdlSport } from "../lib/balldontlie";
+import { getNhlActivePlayers, getNhlTeams } from "../lib/nhl";
 
 const prisma = new PrismaClient();
 
@@ -98,10 +99,102 @@ async function syncSport(sport: BdlSport) {
   console.log(`${sport}: ${currentTeams.length} current teams synced, ${updated} existing players updated, ${created} roster players imported pending pricing.`);
 }
 
+async function syncNhl() {
+  const sport = Sport.NHL;
+  const [teams, players] = await Promise.all([getNhlTeams(), getNhlActivePlayers()]);
+  const currentTeamAbbreviations = new Set(players.map((player) => player.team.abbreviation));
+  const currentTeams = teams.filter((team) => currentTeamAbbreviations.has(team.abbreviation));
+
+  await prisma.team.updateMany({
+    where: { sport, dataProvider: "nhl-official" },
+    data: { active: false }
+  });
+
+  for (const team of currentTeams) {
+    await prisma.team.upsert({
+      where: { sport_abbreviation: { sport, abbreviation: team.abbreviation } },
+      update: {
+        providerKey: `nhl:team:${team.id}`,
+        dataProvider: "nhl-official",
+        league: "NHL",
+        name: team.name,
+        city: team.city,
+        conference: team.conference,
+        division: team.division,
+        active: true
+      },
+      create: {
+        providerKey: `nhl:team:${team.id}`,
+        dataProvider: "nhl-official",
+        sport,
+        league: "NHL",
+        name: team.name,
+        abbreviation: team.abbreviation,
+        city: team.city,
+        conference: team.conference,
+        division: team.division,
+        active: true
+      }
+    });
+  }
+
+  await prisma.athlete.updateMany({
+    where: { sport, dataProvider: "nhl-official" },
+    data: { active: false }
+  });
+
+  let created = 0;
+  let updated = 0;
+  for (const player of players) {
+    const providerKey = `nhl:player:${player.id}`;
+    const existing = await prisma.athlete.findFirst({
+      where: { OR: [{ providerKey }, { sport, name: player.name }] }
+    });
+
+    if (existing) {
+      await prisma.athlete.update({
+        where: { id: existing.id },
+        data: {
+          providerKey,
+          dataProvider: "nhl-official",
+          league: "NHL",
+          team: player.team.abbreviation,
+          position: player.position,
+          active: true
+        }
+      });
+      updated++;
+    } else {
+      await prisma.athlete.create({
+        data: {
+          providerKey,
+          dataProvider: "nhl-official",
+          name: player.name,
+          slug: `nhl-${player.id}-${slugify(player.name)}`,
+          sport,
+          league: "NHL",
+          team: player.team.abbreviation,
+          position: player.position,
+          currentPrice: 10,
+          previousPrice: 10,
+          performance: 50,
+          marketCap: 0,
+          active: true,
+          marketEnabled: false
+        }
+      });
+      created++;
+    }
+  }
+
+  console.log(`NHL: ${currentTeams.length} current teams synced, ${updated} existing players updated, ${created} roster players imported pending pricing.`);
+}
+
 async function main() {
   await syncSport("NBA");
   await syncSport("MLB");
   await syncSport("NFL");
+  await syncNhl();
 }
 
 main().finally(() => prisma.$disconnect());
