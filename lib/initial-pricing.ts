@@ -1,11 +1,11 @@
-export type LaunchSport = "NBA" | "MLB" | "NFL";
+export type LaunchSport = "NBA" | "MLB" | "NFL" | "NHL";
 
 export const initialPricingConfig = {
   minPrice: 3,
   maxPrice: 56.5,
   curve: 2.15,
-  noStatsPrice: { NBA: 8, MLB: 6, NFL: 7 } as Record<LaunchSport, number>,
-  noStatsPerformance: { NBA: 48, MLB: 45, NFL: 46 } as Record<LaunchSport, number>
+  noStatsPrice: { NBA: 8, MLB: 6, NFL: 7, NHL: 7 } as Record<LaunchSport, number>,
+  noStatsPerformance: { NBA: 48, MLB: 45, NFL: 46, NHL: 46 } as Record<LaunchSport, number>
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -20,6 +20,15 @@ function numeric(value: unknown): number | null {
 
 function valueOrZero(value: unknown) {
   return numeric(value) ?? 0;
+}
+
+function minutesValue(value: unknown) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "string" && value.includes(":")) {
+    const [minutes, seconds] = value.split(":").map(Number);
+    if (Number.isFinite(minutes) && Number.isFinite(seconds)) return minutes + seconds / 60;
+  }
+  return valueOrZero(value);
 }
 
 export function priceFromPercentile(percentile: number) {
@@ -127,6 +136,51 @@ export function nflPerformanceRawScore(stats: Record<string, unknown>) {
   const perGame = fantasyLikeTotal / gp;
   const availability = 0.65 + 0.35 * clamp(gp / 8, 0, 1);
   return perGame * availability;
+}
+
+export function nhlPerformanceRawScore(stats: Record<string, unknown>) {
+  const gamesPlayed = numeric(stats.games_played);
+  const playerType = String(stats.player_type ?? "").toLowerCase();
+  const savePct = numeric(stats.save_pct);
+  const goalsAgainstAverage = numeric(stats.goals_against_average);
+  const wins = numeric(stats.wins);
+  const shutouts = numeric(stats.shutouts);
+
+  const isGoalie = playerType === "goalie" || [savePct, goalsAgainstAverage, wins, shutouts].some((value) => value != null);
+  if (isGoalie) {
+    if ([gamesPlayed, savePct, goalsAgainstAverage, wins, shutouts].every((value) => value == null)) return null;
+    const gp = Math.max(1, valueOrZero(gamesPlayed));
+    const availability = 0.62 + 0.38 * clamp(gp / 45, 0, 1);
+    const saveQuality = savePct == null ? 8 : (savePct - 0.88) * 500;
+    const gaaQuality = goalsAgainstAverage == null ? 4 : (3.5 - clamp(goalsAgainstAverage, 1.5, 5)) * 8;
+    const winRateValue = (valueOrZero(wins) / gp) * 25;
+    const shutoutRateValue = (valueOrZero(shutouts) / gp) * 30;
+    return (saveQuality + gaaQuality + winRateValue + shutoutRateValue + 8) * availability;
+  }
+
+  const goals = numeric(stats.goals);
+  const assists = numeric(stats.assists);
+  const points = numeric(stats.points);
+  const pointsPerGame = numeric(stats.points_per_game);
+  const plusMinus = numeric(stats.plus_minus);
+  const shots = numeric(stats.shots);
+  const shootingPct = numeric(stats.shooting_pct);
+  const toi = minutesValue(stats.time_on_ice_per_game);
+
+  if ([gamesPlayed, goals, assists, points, pointsPerGame, plusMinus, shots].every((value) => value == null)) return null;
+  const gp = Math.max(1, valueOrZero(gamesPlayed));
+  const ppg = pointsPerGame ?? valueOrZero(points) / gp;
+  const shootingRate = shootingPct == null ? 0 : (shootingPct > 1 ? shootingPct / 100 : shootingPct);
+  const production =
+    ppg * 20 +
+    (valueOrZero(goals) / gp) * 10 +
+    (valueOrZero(assists) / gp) * 6 +
+    (valueOrZero(plusMinus) / gp) * 0.5 +
+    (valueOrZero(shots) / gp) * 0.5 +
+    shootingRate * 8 +
+    Math.min(5, toi / 5);
+  const availability = 0.62 + 0.38 * clamp(gp / 55, 0, 1);
+  return production * availability;
 }
 
 export function buildPercentiles<T extends { rawScore: number | null }>(rows: T[]) {
