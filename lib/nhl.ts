@@ -1,5 +1,5 @@
 export type NhlTeam = {
-  id: number;
+  id: string;
   name: string;
   abbreviation: string;
   city?: string;
@@ -82,9 +82,10 @@ export async function getNhlTeams(): Promise<NhlTeam[]> {
     const abbreviation = text(row.teamAbbrev) || row.teamAbbrev?.default || row.teamAbbrev;
     if (!abbreviation || teams.has(abbreviation)) continue;
     teams.set(abbreviation, {
-      id: Number(row.teamId),
+      id: abbreviation,
       name: text(row.teamName) || abbreviation,
       abbreviation,
+      city: text(row.placeName) || undefined,
       conference: row.conferenceName,
       division: row.divisionName,
       league: "NHL",
