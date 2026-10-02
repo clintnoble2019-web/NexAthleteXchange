@@ -8,6 +8,8 @@ const DAYS = 30;
 const hashToken = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
 
 export async function createSession(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { accountFrozen: true } });
+  if (!user || user.accountFrozen) throw new Error("Account access is paused.");
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + DAYS * 86400000);
   await prisma.session.create({ data: { userId, tokenHash: hashToken(token), expiresAt } });
@@ -30,6 +32,6 @@ export async function getCurrentUser() {
     where: { tokenHash: hashToken(token) },
     include: { user: { include: { wallet: true } } }
   });
-  if (!session || session.expiresAt < new Date()) return null;
+  if (!session || session.expiresAt < new Date() || session.user.accountFrozen) return null;
   return session.user;
 }

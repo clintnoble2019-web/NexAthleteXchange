@@ -1,3 +1,4 @@
+import { sandboxAccessVerified } from "@/lib/beta-controls";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RealFundingRail, RealFundingType, RealMarketEnvironment, TradeSide } from "@prisma/client";
@@ -24,6 +25,7 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  if (!(await sandboxAccessVerified(user.id))) redirect("/real-market/verify");
   const params = await searchParams;
   const status = first(params.rm);
   const error = first(params.rmError);
@@ -68,8 +70,8 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
     <header className="realSandboxHeader">
       <div>
         <div className="realMarketBadge sandboxBadge">SANDBOX ONLY • NO REAL MONEY</div>
-        <h1>Real Market Foundation 2</h1>
-        <p className="muted">Internal test console for USD/USDC balances, ${realMarket.tradeFee.toFixed(2)} fees, persistent athlete positions, funding states, and Solana Devnet-style settlement records.</p>
+        <h1>Real Market Sandbox</h1>
+        <p className="muted">Internal reference-price simulator for fake USD/USDC balances, ${realMarket.tradeFee.toFixed(2)} fees, persistent athlete positions, and funding records. This console does not match orders between scouts; that planned launch model is still to be built.</p>
       </div>
       <Link className="button secondary" href="/real-market">Back to Coming Soon</Link>
     </header>
@@ -79,8 +81,8 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
 
     <section className="realSandboxStats">
       <article className="card"><span>Sandbox cash</span><strong>{formatRealMoney(wallet.balance)}</strong><small>Fake USD/USDC only</small></article>
-      <article className="card"><span>Holdings value</span><strong>{formatRealMoney(holdingsValue)}</strong><small>{positions.length} open position{positions.length === 1 ? "" : "s"}</small></article>
-      <article className="card"><span>Portfolio value</span><strong>{formatRealMoney(portfolioValue)}</strong><small>Cash + current holdings</small></article>
+      <article className="card"><span>Reference holdings value</span><strong>{formatRealMoney(holdingsValue)}</strong><small>Research valuation; not available cash</small></article>
+      <article className="card"><span>Reference portfolio value</span><strong>{formatRealMoney(portfolioValue)}</strong><small>Fake cash + reference holdings</small></article>
       <article className="card"><span>Executed trade fee</span><strong>${realMarket.tradeFee.toFixed(2)}</strong><small>Charged on sandbox buys and sells</small></article>
     </section>
 
@@ -119,7 +121,7 @@ export default async function RealMarketSandbox({ searchParams }: { searchParams
     </section>
 
     <section className="realSandboxSection">
-      <div className="realMarketSectionHead"><span className="landingEyebrow">SANDBOX MARKET</span><h2>Test the $2 execution model.</h2><p className="muted">Reference prices come from the same performance engine as the Free Market. Sandbox trades never move athlete prices.</p></div>
+      <div className="realMarketSectionHead"><span className="landingEyebrow">REFERENCE-PRICE SIMULATOR</span><h2>Test the $2 accounting model.</h2><p className="muted">This simulator fills fake trades at performance reference prices without a customer counterparty. These fills do not demonstrate live liquidity or guarantee an exit in the planned Real Market.</p></div>
       <div className="realSandboxTableWrap card">
         <table className="realSandboxTable"><thead><tr><th>Athlete</th><th>Sport</th><th>Team</th><th>Price</th><th>Test buy</th></tr></thead><tbody>
           {athletes.map((athlete) => <tr key={athlete.id}>

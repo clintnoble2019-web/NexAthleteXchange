@@ -1,3 +1,4 @@
+import { assertTradingOpen } from "@/lib/beta-controls";
 import { Prisma, RealInstrumentStatus, RealLedgerType, RealMarketEnvironment, TradeSide } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertRealMarketSandbox } from "@/lib/real-market";
@@ -11,6 +12,7 @@ export async function cashOutRetiringSandboxPosition(
 ) {
   assertRealMarketSandbox();
   return prisma.$transaction(async (tx) => {
+    await assertTradingOpen(tx, userId, true);
     const instrument = await tx.realMarketInstrument.findUnique({
       where: { athleteId_environment: { athleteId, environment: SANDBOX } },
       include: { athlete: true },

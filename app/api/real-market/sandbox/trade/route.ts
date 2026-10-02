@@ -1,3 +1,6 @@
+import { publicError } from "@/lib/public-error";
+import { sandboxAccessVerified } from "@/lib/beta-controls";
+import { consumeRateLimit } from "@/lib/request-security";
 import { NextResponse } from "next/server";
 import { TradeSide } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,6 +22,8 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(publicRequestUrl(req, "/login?status=session-required"), 303);
 
+  if (!(await sandboxAccessVerified(user.id))) return NextResponse.redirect(publicRequestUrl(req, "/real-market/verify"), 303);
+  if (!(await consumeRateLimit("sandbox-actions", user.id, 30))) return NextResponse.json({ error: "Please wait before submitting another sandbox request." }, { status: 429 });
   const form = await req.formData();
   const athleteId = String(form.get("athleteId") || "");
   const side = String(form.get("side") || "") as TradeSide;
@@ -32,6 +37,6 @@ export async function POST(req: Request) {
     await executeSandboxRealTrade(user.id, athleteId, side, quantity);
     return redirectStatus(req, "rm", `Sandbox ${side.toLowerCase()} completed with the $2.00 test fee.`);
   } catch (error) {
-    return redirectStatus(req, "rmError", error instanceof Error ? error.message : "Sandbox trade failed.");
+    return redirectStatus(req, "rmError", publicError(error, "Sandbox trade failed."));
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { consumeRateLimit, safeReturnTo as validatedReturnTo } from "@/lib/request-security";
 import { publicRequestUrl } from "@/lib/public-url";
 
 const schema = z.object({
@@ -10,13 +11,14 @@ const schema = z.object({
 });
 
 function safeReturnTo(value?: string) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/watchlist";
+  return validatedReturnTo(value, "/watchlist");
 }
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(publicRequestUrl(req, "/login?status=session-required"), 303);
 
+  if (!(await consumeRateLimit("watchlist", user.id, 30))) return NextResponse.json({ error: "Please wait before updating your watchlist." }, { status: 429 });
   const form = await req.formData();
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return NextResponse.redirect(publicRequestUrl(req, "/watchlist"), 303);

@@ -22,7 +22,10 @@
     "init:prices": "tsx scripts/initialize-player-prices.ts",
     "update:market": "tsx scripts/update-live-market.ts",
     "update:live": "tsx scripts/update-dynamic-market.ts",
-    "snapshot:weekly": "tsx scripts/snapshot-weekly-leaderboard.ts"
+    "snapshot:weekly": "tsx scripts/snapshot-weekly-leaderboard.ts",
+    "test:foundation4": "tsx scripts/foundation-4-test.ts",
+    "beta:cleanup": "tsx scripts/cleanup-beta-records.ts",
+    "test:responsive": "node scripts/responsive-qa.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",
@@ -36,6 +39,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "playwright": "1.62.1",
     "prisma": "6.12.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"

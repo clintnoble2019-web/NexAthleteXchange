@@ -1,3 +1,4 @@
+import { isAdmin } from "@/lib/beta-controls";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LiquidityQuoteStatus, RealInstrumentStatus, RealMarketEnvironment, Sport } from "@prisma/client";
@@ -15,6 +16,7 @@ export default async function LiquiditySandboxPage() {
   if (!realMarketSandboxPreviewEnabled()) redirect("/real-market");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (!isAdmin(user.id)) redirect("/market");
 
   const environment = RealMarketEnvironment.SANDBOX;
   const now = new Date();
@@ -47,7 +49,7 @@ export default async function LiquiditySandboxPage() {
       <div>
         <div className="realMarketBadge sandboxBadge">INTERNAL SANDBOX • NO REAL MONEY</div>
         <h1>Institutional Liquidity</h1>
-        <p className="muted">Foundation 3 console for the 60-instrument mandate, LP accounts, quote coverage, exposure controls, and the career-ending retirement reserve.</p>
+        <p className="muted">Internal prototype for a possible later liquidity-provider stage: 60-instrument coverage, funded quotes, exposure controls, and simulated retirement reserves. The planned first stage matches orders between scouts; this console does not implement that model or promise live redemption.</p>
       </div>
       <div className="realMarketActions"><Link className="button secondary" href="/real-market/sandbox">Customer sandbox</Link><Link className="button secondary" href="/real-market">Coming Soon</Link></div>
     </header>

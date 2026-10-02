@@ -3,6 +3,8 @@
 Status: Sandbox only
 Live funds: Disabled
 
+Launch positioning update: [The Scouting Economy](REAL_MARKET_LAUNCH_MODEL.md) plans funded customer matching first, then evaluates professional liquidity using actual trading data. The infrastructure below remains an internal LP/retirement simulator for a possible later stage; it does not implement customer matching or commit the live product to guaranteed redemption.
+
 ## Objective
 
 Foundation 3 turns the Real Market sandbox from a customer-money simulator into a venue that a professional liquidity provider can technically evaluate.

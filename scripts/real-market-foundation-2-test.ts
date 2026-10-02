@@ -29,7 +29,7 @@ async function main() {
   assert(realMarket.environment === "SANDBOX", "Real Market must remain in sandbox mode.");
 
   const user = await prisma.user.create({
-    data: { email, username, passwordHash: "sandbox-test-only" },
+    data: { email, username, passwordHash: "sandbox-test-only", realEnrollment: { create: { status: "VERIFIED", environment: "SANDBOX", identityHash: `test-foundation2-${unique}` } } },
   });
 
   try {
