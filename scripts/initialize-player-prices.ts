@@ -1,6 +1,6 @@
 import { PrismaClient, Sport } from "@prisma/client";
 import { getBdlMlbSeasonStats, getBdlNbaSeasonAverages, getBdlNflSeasonStats } from "../lib/balldontlie";
-import { currentNhlSeasonStart, getNhlSeasonStats } from "../lib/nhl";
+import { getNhlSeasonStats } from "../lib/nhl";
 import {
   buildPercentiles,
   initialPricingConfig,
@@ -36,6 +36,15 @@ function defaultMlbSeason(now = new Date()) {
 function defaultNflSeason(now = new Date()) {
   const year = now.getUTCFullYear();
   return now.getUTCMonth() >= 7 ? year : year - 1;
+}
+
+function defaultNhlPricingSeason(now = new Date()) {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  if (month < 8) return year - 1;
+  if (month === 8) return year - 1;
+  if (month === 9 && now.getUTCDate() < 15) return year - 1;
+  return year;
 }
 
 function seasonFromEnv(name: string, fallback: number) {
@@ -137,7 +146,7 @@ async function main() {
   const nbaSeason = seasonFromEnv("NEX_NBA_PRICING_SEASON", defaultNbaSeason());
   const mlbSeason = seasonFromEnv("NEX_MLB_PRICING_SEASON", defaultMlbSeason());
   const nflSeason = seasonFromEnv("NEX_NFL_PRICING_SEASON", defaultNflSeason());
-  const nhlSeason = seasonFromEnv("NEX_NHL_PRICING_SEASON", currentNhlSeasonStart());
+  const nhlSeason = seasonFromEnv("NEX_NHL_PRICING_SEASON", defaultNhlPricingSeason());
   console.log(`Initializing NexPoints prices using NBA ${nbaSeason}, MLB ${mlbSeason}, NFL ${nflSeason}, and NHL ${nhlSeason}-${String(nhlSeason + 1).slice(-2)} regular-season data...`);
   await priceSport("NBA", nbaSeason);
   await priceSport("MLB", mlbSeason);
